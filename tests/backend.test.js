@@ -165,6 +165,35 @@ test('dashboard, upload access, and progress endpoints work', async () => {
   assert.equal(progressBody.position, 320);
 });
 
+test('auth sync endpoint returns a valid dashboard token', async () => {
+  const email = `sync-${Date.now()}@example.com`;
+  const signupRes = await fetch(`${baseUrl}/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Sync User', email, password: 'secret123' })
+  });
+  const signupBody = await signupRes.json();
+  assert.equal(signupRes.status, 200);
+  assert.equal(signupBody.ok, true);
+
+  const syncRes = await fetch(`${baseUrl}/auth/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name: 'Sync User', provider: 'supabase' })
+  });
+  const syncBody = await syncRes.json();
+  assert.equal(syncRes.status, 200);
+  assert.equal(syncBody.ok, true);
+  assert.ok(syncBody.user?.token);
+
+  const dashboardRes = await fetch(`${baseUrl}/dashboard`, {
+    headers: { Authorization: `Bearer ${syncBody.user.token}` }
+  });
+  const dashboardBody = await dashboardRes.json();
+  assert.equal(dashboardRes.status, 200);
+  assert.equal(dashboardBody.ok, true);
+});
+
 test('book metadata and file endpoints work', async () => {
   const email = `reader-${Date.now()}@example.com`;
   const signupRes = await fetch(`${baseUrl}/auth/signup`, {

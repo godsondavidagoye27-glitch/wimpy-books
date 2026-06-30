@@ -126,9 +126,15 @@
         return;
       }
       document.getElementById('navAuth').textContent = `👤 ${user.name.split(' ')[0]}`;
+      mount.innerHTML = '<div class="dashboard-loading"><div class="loader"></div><h3>Loading your dashboard</h3><p>Restoring your session and syncing your stats.</p></div>';
 
       try {
-        const response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        await syncBackendUser(user);
+        let response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        if (response.status === 401 || response.status === 403) {
+          await syncBackendUser(user);
+          response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        }
         const data = await response.text().then(t => { try { return JSON.parse(t); } catch { return { ok:false }; } });
         if (!data.ok) {
           mount.innerHTML = '<div class="dashboard-empty"><h3>Dashboard unavailable</h3><p>Try refreshing.</p></div>';
@@ -202,6 +208,10 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       await Auth.restoreSupabaseSession?.();
+      const currentUser = Auth.getCurrentUser();
+      if (currentUser?.email) {
+        await syncBackendUser(currentUser);
+      }
       renderDashboardHome();
       initTrendingCarousel();
     });

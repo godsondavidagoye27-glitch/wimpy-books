@@ -25,6 +25,9 @@
     </div>
   </section>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="config.js"></script>
   <script src="auth.js"></script>
   <script>
     async function parseJsonResponse(response, fallback = null) {
@@ -37,14 +40,31 @@
       }
     }
 
+    async function showDashboardLoading(message = 'Restoring your session and syncing your dashboard token...') {
+      const statsMount = document.getElementById('dashboardStats');
+      const mount = document.getElementById('dashboardList');
+      statsMount.innerHTML = `<div class="empty-state"><strong>Loading dashboard</strong><p>${message}</p></div>`;
+      mount.innerHTML = '';
+    }
+
     async function loadDashboard() {
-      if (!Auth.getCurrentUser()) {
+      await showDashboardLoading();
+      await Auth.restoreSupabaseSession?.();
+      let currentUser = Auth.getCurrentUser();
+      if (!currentUser) {
         window.location.href = 'auth.html';
         return;
       }
-      const response = await fetch(`${window.location.protocol === 'file:' || (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') ? 'http://127.0.0.1:3000/api' : '/api'}/dashboard`, {
+      currentUser = (await syncBackendUser(currentUser)) || currentUser;
+      const apiBase = window.location.protocol === 'file:' || (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') ? 'http://127.0.0.1:3000/api' : '/api';
+      let response = await fetch(`${apiBase}/dashboard`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` }
       });
+      if (response.status === 401 || response.status === 403) {
+        await showDashboardLoading('Syncing your login token and retrying dashboard access...');
+        currentUser = (await syncBackendUser(currentUser)) || currentUser;
+        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+      }
       const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
       const statsMount = document.getElementById('dashboardStats');
       const mount = document.getElementById('dashboardList');
