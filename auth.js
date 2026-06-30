@@ -125,6 +125,9 @@ const Auth = {
       if (synced) {
         user = synced;
       }
+      if (user?.token) {
+        localStorage.setItem('fb_token', user.token);
+      }
       this.setCurrentUser(user);
       return true;
     } catch (error) {
@@ -246,18 +249,6 @@ const Auth = {
       this.setCurrentUser({ ...data.user, badges: data.user.badges || ['New Reader'] });
     }
     return data;
-  },
-  async signInWithGoogle() {
-    const client = await initSupabaseClient();
-    if (!client) return { ok: false, msg: 'Supabase is not configured yet.' };
-    try {
-      const redirectTo = `${window.location.origin}/index.html`;
-      const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
-      if (error) return { ok: false, msg: error.message || 'Google sign-in failed.' };
-      return { ok: true, msg: 'Redirecting to Google…' };
-    } catch (error) {
-      return { ok: false, msg: error.message || 'Google sign-in failed.' };
-    }
   },
   requireLogin(redirect = 'auth.html') {
     if (!this.getCurrentUser()) {

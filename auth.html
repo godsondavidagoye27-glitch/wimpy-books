@@ -42,7 +42,6 @@
         </div>
 
         <button type="submit" class="btn-primary btn-full">Login</button>
-        <button type="button" id="googleLoginBtn" class="btn-outline btn-full" style="margin-top:12px;">Continue with Google</button>
         <div id="loginStatus" class="status-box" style="display:none;"></div>
       </form>
 
@@ -92,14 +91,6 @@
       tab.classList.add('active');
       document.getElementById(tab.dataset.tab + 'Form').classList.add('active');
     });
-  });
-
-  document.getElementById('googleLoginBtn').addEventListener('click', async () => {
-    const result = await Auth.signInWithGoogle();
-    const status = document.getElementById('loginStatus');
-    status.style.display = 'block';
-    status.className = 'status-box ' + (result.ok ? 'success' : 'error');
-    status.textContent = result.msg;
   });
 
   document.getElementById('loginForm').addEventListener('submit', async e => {
