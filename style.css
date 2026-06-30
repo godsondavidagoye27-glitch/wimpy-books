@@ -888,6 +888,35 @@ body::after {
   margin-bottom: 16px;
 }
 
+.legal-card {
+  margin-bottom: 24px;
+  padding: 26px;
+  border-radius: 22px;
+  background: var(--card-bg-elevated);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 20px 55px rgba(0,0,0,0.15);
+}
+
+.legal-card h2 {
+  margin-bottom: 10px;
+  font-size: 22px;
+}
+
+.legal-card p,
+.legal-card ul {
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+.legal-card ul {
+  margin-left: 20px;
+  margin-top: 10px;
+}
+
+.legal-card li {
+  margin-bottom: 8px;
+}
+
 /* Reader: full cover + paginated pages */
 .book-viewer {
   position: relative;
