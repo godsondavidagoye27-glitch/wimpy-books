@@ -1,0 +1,104 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Contacts — FreeBooks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="one">
+    <a href="index.html">🏠 Home</a>
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html" class="active">📞 Contacts</a>
+    <a href="display.html?id=1">📖 Display</a>
+  </nav>
+
+  <section class="contact-wrapper">
+    <div class="contact-info">
+      <h1>📬 Get in Touch</h1>
+      <p>Have a question, suggestion, or partnership idea? We'd love to hear from you.</p>
+
+      <div class="info-card">
+        <div class="info-item">
+          <span class="info-icon">📧</span>
+          <div>
+            <h4>Email</h4>
+            <p>hello@freebooks.com</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">📱</span>
+          <div>
+            <h4>Phone</h4>
+            <p>+234 800 FREEBOOK</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">📍</span>
+          <div>
+            <h4>Address</h4>
+            <p>Lagos, Nigeria</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">⏰</span>
+          <div>
+            <h4>Hours</h4>
+            <p>Mon – Fri, 9AM – 6PM</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="social-row">
+        <a href="#" class="social-btn">📘 Facebook</a>
+        <a href="#" class="social-btn">🐦 Twitter</a>
+        <a href="#" class="social-btn">📸 Instagram</a>
+      </div>
+    </div>
+
+    <div class="contact-form-box">
+      <h2>Send us a Message</h2>
+      <form onsubmit="handleContact(event)">
+        <div class="input-group">
+          <label>Your Name</label>
+          <input type="text" placeholder="John Doe" required>
+        </div>
+        <div class="input-group">
+          <label>Your Email</label>
+          <input type="email" placeholder="you@example.com" required>
+        </div>
+        <div class="input-group">
+          <label>Subject</label>
+          <input type="text" placeholder="How can we help?" required>
+        </div>
+        <div class="input-group">
+          <label>Message</label>
+          <textarea rows="5" placeholder="Write your message..." required></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-full">✉ Send Message</button>
+      </form>
+      <div id="contactStatus" class="status-box" style="display:none;"></div>
+    </div>
+  </section>
+
+  <footer class="leg">
+    <p>© 2026 FreeBooks. Built for readers, by readers. 📖</p>
+  </footer>
+
+<script>
+  function handleContact(e) {
+    e.preventDefault();
+    const status = document.getElementById('contactStatus');
+    status.style.display = 'block';
+    status.className = 'status-box success';
+    status.innerHTML = '✅ Message sent! We\'ll reply within 24 hours.';
+    e.target.reset();
+    setTimeout(() => { status.style.display = 'none'; }, 4000);
+  }
+</script>
+
+</body>
+</html>

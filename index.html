@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Wimpy Books — Preview, Read, and Unlock</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html">📞 Contacts</a>
+    <a href="auth.html" id="navAuth">🔐 Sign In</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="home-hero">
+    <div class="home-hero-copy">
+      <span class="eyebrow">Immersive reading, beautifully organized</span>
+      <h1>Turn every page into a <span>storybook experience</span>.</h1>
+      <p>Discover new voices, follow your progress across devices, and let your dashboard become your reading command center.</p>
+      <div class="hero-btns">
+        <a href="store.html" class="btn-primary">Browse books</a>
+        <a href="upload.html" class="btn-outline">Publish your own</a>
+      </div>
+      <div class="hero-pill-row">
+        <span class="hero-pill">📚 Instant previews</span>
+        <span class="hero-pill">✨ Smooth page flips</span>
+        <span class="hero-pill">🌍 Synced everywhere</span>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="orb orb-one"></div>
+      <div class="orb orb-two"></div>
+      <div class="book-stack-card">
+        <div class="book-stack-card-cover">📖</div>
+        <div class="book-stack-card-lines"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="featured-strip">
+    <article class="feature-card">
+      <h3>Read anywhere</h3>
+      <p>Your progress syncs with your account so you can continue on desktop, tablet, or phone.</p>
+    </article>
+    <article class="feature-card">
+      <h3>Discover favorites</h3>
+      <p>Browse a growing library of stories, practical guides, and new voices from around the world.</p>
+    </article>
+    <article class="feature-card">
+      <h3>Share your work</h3>
+      <p>Publish your own book and let readers discover it instantly from the library.</p>
+    </article>
+  </section>
+
+  <section class="dashboard-section" id="dashboardSection">
+    <div class="section-heading">
+      <h2 class="section-title">📊 Your Dashboard</h2>
+      <p class="section-copy">Your recent reads, uploads, and badges live here. Sign in to personalize.</p>
+    </div>
+    <div id="dashboardContent" class="dashboard-shell"></div>
+  </section>
+
+  <section class="carousel-section">
+    <div class="section-heading">
+      <h2 class="section-title">🔥 Premium uploader picks</h2>
+      <p class="section-copy">These are the trending books featured as premium-advert space, ranked by traffic and reads.</p>
+    </div>
+    <div class="carousel-track" id="trendingCarousel"></div>
+    <div class="section-link-row">
+      <a href="store.html?view=trending" class="btn-outline">See full trending list</a>
+    </div>
+  </section>
+
+  <section class="quotes-section">
+    <div class="section-heading">
+      <h2 class="section-title">💬 Why readers love Wimpy Books</h2>
+      <p class="section-copy">Readers keep coming back for previews, seamless reading, and a calm, focused experience.</p>
+    </div>
+    <div class="quotes-grid">
+      <article class="quote-card">
+        <p>“The reader experience feels premium, simple, and incredibly inviting.”</p>
+        <strong>— Maya, book lover</strong>
+      </article>
+      <article class="quote-card">
+        <p>“I can jump back into a book instantly, even after switching devices.”</p>
+        <strong>— Daniel, avid reader</strong>
+      </article>
+      <article class="quote-card">
+        <p>“It feels like a library designed for people who actually want to read.”</p>
+        <strong>— Rina, student</strong>
+      </article>
+    </div>
+  </section>
+
+  <section class="newsletter-callout">
+    <div>
+      <h3>Join the reading circle</h3>
+      <p>Get book updates, new releases, and reading tips delivered to your inbox.</p>
+    </div>
+    <a href="auth.html" class="btn-primary">Join now</a>
+  </section>
+
+  <footer class="leg">
+    <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    async function renderDashboardHome() {
+      const user = Auth.getCurrentUser();
+      const mount = document.getElementById('dashboardContent');
+      if (!user) {
+        mount.innerHTML = `
+          <div class="dashboard-empty">
+            <h3>Sign in to view your dashboard</h3>
+            <p>Your reading progress, uploads, and rewards will appear here.</p>
+            <a href="auth.html" class="btn-primary">Sign in / Create account</a>
+          </div>`;
+        document.getElementById('navAuth').textContent = '🔐 Sign In';
+        return;
+      }
+      document.getElementById('navAuth').textContent = `👤 ${user.name.split(' ')[0]}`;
+
+      try {
+        const response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        const data = await response.text().then(t => { try { return JSON.parse(t); } catch { return { ok:false }; } });
+        if (!data.ok) {
+          mount.innerHTML = '<div class="dashboard-empty"><h3>Dashboard unavailable</h3><p>Try refreshing.</p></div>';
+          return;
+        }
+        // reuse existing server-provided markup logic (kept concise here)
+        mount.innerHTML = `
+          <div class="dashboard-shell-grid">
+            <div class="info-card dashboard-hero-card">
+              <h3>Welcome back, ${user.name.split(' ')[0]}</h3>
+              <div class="meta-row">
+                <div><strong>${data.stats.uploadedCount}</strong><span>uploads</span></div>
+                <div><strong>${data.stats.booksRead}</strong><span>reads</span></div>
+                <div><strong>${Math.round(data.stats.timeSpent)}</strong><span>minutes</span></div>
+                <div><strong>$${data.stats.earned.toFixed(2)}</strong><span>earned</span></div>
+              </div>
+            </div>
+            <div class="dashboard-side-card">
+              <h3>Continue reading</h3>
+              ${data.recentReads && data.recentReads.length ? data.recentReads.map(read => `<article class="dashboard-item"><div><h4>${read.title}</h4><p>Last: ${new Date(read.lastReadAt).toLocaleString()}</p><span class="tag">Pos: ${read.position}</span></div><a href="reader.html?id=${read.bookId}" class="btn-small">Resume</a></article>`).join('') : '<div class="empty-state">No recent reads yet</div>'}
+            </div>
+            <div class="dashboard-side-card">
+              <h3>Your uploads</h3>
+              ${data.uploads && data.uploads.length ? data.uploads.map(b => `<article class="dashboard-item"><div><h4>${b.title}</h4><p>${b.description}</p><span class="tag">${b.isFree? 'Free' : 'Paid'}</span></div><a href="display.html?id=${b.id}" class="btn-small">View</a></article>`).join('') : '<div class="empty-state">No uploads yet</div>'}
+            </div>
+          </div>`;
+      } catch (err) {
+        mount.innerHTML = '<div class="dashboard-empty"><h3>Unable to load dashboard</h3><p>Try refreshing.</p></div>';
+      }
+    }
+
+    async function initTrendingCarousel() {
+      const track = document.getElementById('trendingCarousel');
+      if (!track) return;
+      try {
+        const response = await fetch(`${getApiBase()}/trending`);
+        const books = await response.json();
+        const premiumBooks = (books || []).filter(book => book.premiumUploader || book.promoted || book.traffic > 0).slice(0, 4);
+        if (!premiumBooks.length) {
+          track.innerHTML = '<article class="carousel-card"><h3>No trending books yet</h3><p>Premium uploader picks will appear here once a book starts attracting readers.</p></article>';
+          return;
+        }
+        track.innerHTML = premiumBooks.map((book, index) => `
+          <article class="carousel-card ${index === 0 ? 'is-active' : ''}">
+            <span class="tag">${book.genre || 'Featured'}</span>
+            <h3>${book.title}</h3>
+            <p>${book.description || book.preview}</p>
+            <div class="meta-row compact">
+              <span>${book.traffic || 0} traffic</span>
+              <span>${book.reads || 0} reads</span>
+            </div>
+          </article>
+        `).join('');
+
+        const cards = Array.from(track.children);
+        if (cards.length < 2) return;
+        let index = 0;
+        const step = () => {
+          cards.forEach((card, idx) => {
+            card.classList.remove('is-active');
+            if (idx === index) card.classList.add('is-active');
+          });
+          index = (index + 1) % cards.length;
+        };
+        step();
+        setInterval(step, 3500);
+      } catch (error) {
+        track.innerHTML = '<article class="carousel-card"><h3>Trending moment unavailable</h3><p>Refresh to try again.</p></article>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Auth.restoreSupabaseSession?.();
+      renderDashboardHome();
+      initTrendingCarousel();
+    });
+  </script>
+</body>
+</html>

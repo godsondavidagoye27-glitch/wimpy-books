@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Book Details — Wimpy Books</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a href="index.html">🏠 Home</a>
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html">📞 Contacts</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="book-detail" id="bookDetail">
+    <div class="detail-cover" id="detailCover">📖</div>
+    <div class="detail-info">
+      <span class="tag" id="detailTag">Preview</span>
+      <h1 id="detailTitle">Loading…</h1>
+      <p class="author-big" id="detailAuthor"></p>
+      <div class="rating" id="detailRating"></div>
+      <div class="meta-row">
+        <div><strong>Access:</strong> <span id="detailAccess"></span></div>
+        <div><strong>Price:</strong> <span id="detailPrice"></span></div>
+        <div><strong>Reviews:</strong> <span id="detailReviews"></span></div>
+        <div><strong>Promoted:</strong> <span id="detailPromoted"></span></div>
+      </div>
+      <h3>Preview</h3>
+      <p class="description" id="detailDescription"></p>
+      <div class="detail-actions">
+        <button class="btn-primary" id="primaryAction">Preview</button>
+        <button class="btn-outline" id="secondaryAction">Read online</button>
+      </div>
+      <div id="ownerActions"></div>
+      <div class="share-row">
+        <span>Share:</span>
+        <a href="#">📘</a>
+        <a href="#">🐦</a>
+        <a href="#">📧</a>
+        <a href="#">🔗</a>
+      </div>
+
+      <div class="comment-box">
+        <h3>Leave a review</h3>
+        <form id="commentForm">
+          <textarea id="commentText" rows="4" placeholder="Share your thoughts on this book"></textarea>
+          <button class="btn-small" type="submit">Post comment</button>
+        </form>
+        <div id="commentList" class="comment-list"></div>
+      </div>
+
+      <div class="rating-row">
+        <h3>Rate this book</h3>
+        <div class="stars" id="stars"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="featured premium-spotlight-section">
+    <h2 class="section-title">✨ Premium uploader spotlight</h2>
+    <div class="premium-spotlight-card" id="premiumSpotlight"></div>
+  </section>
+
+  <section class="featured">
+    <h2 class="section-title">📚 Premium uploader picks</h2>
+    <div class="book-grid" id="relatedBooks"></div>
+  </section>
+
+  <footer class="leg">
+    <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
+  </footer>
+
+  <script src="auth.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bookId = params.get('id');
+
+    let spotlightIndex = 0;
+
+    function getPremiumBooks(books) {
+      return (books || []).filter(entry => entry.premiumUploader || entry.promoted || Number(entry.traffic || 0) > 0);
+    }
+
+    function renderPremiumSpotlight(books) {
+      const premiumBooks = getPremiumBooks(books);
+      const mount = document.getElementById('premiumSpotlight');
+      if (!premiumBooks.length) {
+        mount.innerHTML = '<div class="empty-state">No premium uploader books are available yet.</div>';
+        return;
+      }
+      const book = premiumBooks[spotlightIndex % premiumBooks.length];
+      mount.innerHTML = `
+        <div class="spotlight-body">
+          <div class="spotlight-cover" style="background:${book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};">📖</div>
+          <div class="spotlight-info">
+            <span class="tag">Premium uploader spotlight</span>
+            <h3>${book.title}</h3>
+            <p>${book.preview || book.description || 'A refined read from a premium uploader.'}</p>
+            <div class="card-actions">
+              <a href="display.html?id=${book.id}" class="btn-small">View</a>
+              <a href="reader.html?id=${book.id}" class="btn-small download">Read</a>
+            </div>
+          </div>
+        </div>
+      `;
+      spotlightIndex = (spotlightIndex + 1) % premiumBooks.length;
+    }
+
+    async function loadBook() {
+      const book = await Books.getById(bookId);
+      if (!book) {
+        document.getElementById('bookDetail').innerHTML = '<div class="empty-state">Book not found</div>';
+        return;
+      }
+
+      document.getElementById('detailTitle').textContent = book.title;
+      document.getElementById('detailAuthor').textContent = `by ${book.author}`;
+      document.getElementById('detailTag').textContent = book.genre || 'Featured';
+      document.getElementById('detailDescription').textContent = book.preview || book.description;
+      if (book.coverImageData) {
+        document.getElementById('detailCover').style.background = `url(${book.coverImageData}) center/cover no-repeat`;
+      } else {
+        document.getElementById('detailCover').style.background = book.cover || 'linear-gradient(135deg,#667eea,#764ba2)';
+      }
+      document.getElementById('detailAccess').textContent = book.isFree ? 'Free online' : 'Paid access';
+      document.getElementById('detailPrice').textContent = book.isFree ? 'Free' : `$${Number(book.price || 0).toFixed(2)}`;
+      document.getElementById('detailReviews').textContent = `${book.ratings || 0} ratings`;
+      document.getElementById('detailPromoted').textContent = book.promoted ? 'Yes' : 'No';
+      document.getElementById('detailRating').innerHTML = `⭐ ${Number(book.rating || 0).toFixed(1)} · ${book.ratings || 0} reviews`;
+      const user = Auth.getCurrentUser();
+      const ownerActions = document.getElementById('ownerActions');
+      if (user && user.email === book.uploader) {
+        ownerActions.innerHTML = `<button class="btn-outline" id="deleteBook">Delete title</button>`;
+        document.getElementById('deleteBook').onclick = async () => {
+          if (!confirm('Delete this book permanently?')) return;
+          const result = await Books.delete(book.id);
+          if (result.ok) {
+            alert('Book removed successfully.');
+            window.location.href = 'store.html';
+          } else {
+            alert(result.msg || 'Could not delete the book.');
+          }
+        };
+      }
+
+      const purchased = user ? JSON.parse(localStorage.getItem('fb_purchases') || '[]').includes(Number(book.id)) : false;
+      const primaryAction = document.getElementById('primaryAction');
+      const secondaryAction = document.getElementById('secondaryAction');
+
+      primaryAction.textContent = book.isFree || purchased ? 'Read online' : 'Unlock access';
+      primaryAction.onclick = async () => {
+        if (!user) {
+          const confirmed = await confirmAction('Please log in to continue reading.');
+          if (confirmed) window.location.href = 'auth.html';
+          return;
+        }
+        if (!book.isFree && !purchased) {
+          const checkout = await Books.createCheckout(book.id);
+          if (checkout.ok && checkout.url) {
+            window.location.href = checkout.url;
+          } else {
+            showNotice(checkout.msg || 'Checkout could not be started.', 'error');
+          }
+          return;
+        }
+        window.location.href = `reader.html?id=${book.id}`;
+      };
+
+      secondaryAction.textContent = book.isFree || purchased ? 'Open reader' : 'Buy for $' + Number(book.price || 0).toFixed(2);
+      secondaryAction.onclick = async () => {
+        if (!user) {
+          const confirmed = await confirmAction('Please log in to continue reading.');
+          if (confirmed) window.location.href = 'auth.html';
+          return;
+        }
+        if (!book.isFree && !purchased) {
+          const checkout = await Books.createCheckout(book.id);
+          if (checkout.ok && checkout.url) {
+            window.location.href = checkout.url;
+          } else {
+            showNotice(checkout.msg || 'Checkout could not be started.', 'error');
+          }
+          return;
+        }
+        window.location.href = `reader.html?id=${book.id}`;
+      };
+
+      const stars = document.getElementById('stars');
+      stars.innerHTML = [1, 2, 3, 4, 5].map(value => `<button class="star-btn" data-score="${value}">★</button>`).join('');
+      stars.querySelectorAll('.star-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          if (!user) {
+            alert('Please log in to rate books.');
+            return;
+          }
+          await Books.rate(book.id, Number(button.dataset.score));
+          showNotice('Thank you for rating this book.', 'success');
+          loadBook();
+        });
+      });
+
+      document.getElementById('commentForm').onsubmit = async (e) => {
+        e.preventDefault();
+        if (!user) {
+          showNotice('Login required to leave a comment.', 'error');
+          return;
+        }
+        const text = document.getElementById('commentText').value.trim();
+        if (!text) return;
+        await Books.comment(book.id, text);
+        document.getElementById('commentText').value = '';
+        loadBook();
+      };
+
+      const allBooks = await Books.getAll();
+      renderComments(book);
+      renderPremiumSpotlight(allBooks);
+      renderRelated(allBooks);
+      if (window.spotlightTimer) clearInterval(window.spotlightTimer);
+      window.spotlightTimer = setInterval(() => renderPremiumSpotlight(allBooks), 30000);
+    }
+
+    function renderComments(book) {
+      const mount = document.getElementById('commentList');
+      mount.innerHTML = (book.comments || []).map(comment => `
+        <div class="comment-item"><strong>${comment.user}</strong><p>${comment.text}</p></div>
+      `).join('');
+    }
+
+    function renderRelated(books) {
+      const mount = document.getElementById('relatedBooks');
+      const related = getPremiumBooks(books).filter(entry => entry.id != bookId).slice(0, 3);
+      mount.innerHTML = related.map(book => `
+        <article class="book-card">
+          <div class="book-cover" style="background:${book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};">📖</div>
+          <h3>${book.title}</h3>
+          <p class="author">${book.author}</p>
+          <span class="tag">${book.genre || 'featured'}</span>
+          <div class="card-actions"><a href="display.html?id=${book.id}" class="btn-small">Open</a></div>
+        </article>
+      `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadBook);
+  </script>
+</body>
+</html>

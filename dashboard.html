@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard — Wimpy Books</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a href="index.html">🏠 Home</a>
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="dashboard.html" class="active">📊 Dashboard</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="form-page">
+    <div class="form-container">
+      <h1>📊 Your dashboard</h1>
+      <p class="form-subtitle">See your reading progress, uploads, earnings, and earned badges in one place.</p>
+      <div id="dashboardStats" class="dashboard-stats"></div>
+      <div id="continueReading" class="dashboard-list"></div>
+      <div id="dashboardList" class="dashboard-list"></div>
+    </div>
+  </section>
+
+  <script src="auth.js"></script>
+  <script>
+    async function parseJsonResponse(response, fallback = null) {
+      const text = await response.text();
+      if (!text) return fallback ?? { ok: false, msg: `Request failed (${response.status}).` };
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        return { ok: false, msg: text || `Request failed (${response.status}).` };
+      }
+    }
+
+    async function loadDashboard() {
+      if (!Auth.getCurrentUser()) {
+        window.location.href = 'auth.html';
+        return;
+      }
+      const response = await fetch(`${window.location.protocol === 'file:' || (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') ? 'http://127.0.0.1:3000/api' : '/api'}/dashboard`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` }
+      });
+      const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
+      const statsMount = document.getElementById('dashboardStats');
+      const mount = document.getElementById('dashboardList');
+      if (!data.ok) {
+        if (data.msg && data.msg.toLowerCase().includes('login required')) {
+          statsMount.innerHTML = '<div class="empty-state">Please log in to see your dashboard. <a href="auth.html" class="btn-small">Login</a></div>';
+        } else {
+          statsMount.innerHTML = '<div class="empty-state">Unable to load dashboard.</div>';
+        }
+        mount.innerHTML = '';
+        return;
+      }
+      statsMount.innerHTML = `
+        <div class="info-card">
+          <h2>Welcome back, ${Auth.getCurrentUser().name.split(' ')[0]}</h2>
+          <div class="meta-row">
+            <div><strong>${data.stats.uploadedCount}</strong><span>books uploaded</span></div>
+            <div><strong>${data.stats.booksRead}</strong><span>books read</span></div>
+            <div><strong>${Math.round(data.stats.timeSpent)}</strong><span>minutes read</span></div>
+            <div><strong>$${data.stats.earned.toFixed(2)}</strong><span>earned</span></div>
+          </div>
+          <div class="meta-row">
+            <strong>Badges:</strong> ${data.stats.badges.length ? data.stats.badges.join(', ') : 'None yet'}
+          </div>
+        </div>
+      `;
+
+      const continueMount = document.getElementById('continueReading');
+      if (data.recentReads && data.recentReads.length) {
+        continueMount.innerHTML = `
+          <div class="info-card">
+            <h3>Continue reading</h3>
+            ${data.recentReads.map(read => `
+              <article class="dashboard-item">
+                <div>
+                  <h4>${read.title}</h4>
+                  <p>Last read ${new Date(read.lastReadAt).toLocaleString()}</p>
+                  <span class="tag">Position: ${read.position}</span>
+                  <span class="tag">Time: ${Math.round(read.timeSpent)} sec</span>
+                </div>
+                <div class="card-actions">
+                  <a href="reader.html?id=${read.bookId}" class="btn-small">Resume</a>
+                </div>
+              </article>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        continueMount.innerHTML = '<div class="empty-state">No recent reads yet. Open a book and start reading to save your progress.</div>';
+      }
+
+      if (!data.uploads.length) {
+        mount.innerHTML = '<div class="empty-state">No uploads yet. Publish your first title from the upload page.</div>';
+        return;
+      }
+      mount.innerHTML = data.uploads.map(book => `
+        <article class="dashboard-item">
+          <div>
+            <h3>${book.title}</h3>
+            <p>${book.description}</p>
+            <span class="tag">${book.isFree ? 'Free' : 'Paid'}</span>
+            <span class="tag">${book.promoted ? 'Sponsored' : 'Community'}</span>
+          </div>
+          <div class="card-actions">
+            <a href="display.html?id=${book.id}" class="btn-small">View</a>
+            <button class="btn-small" onclick="deleteUpload(${book.id})">Delete</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    async function deleteUpload(id) {
+      const confirmed = await confirmAction('Delete this upload permanently?');
+      if (!confirmed) return;
+      const result = await Books.delete(id);
+      if (result.ok) {
+        showNotice('Upload removed.', 'success');
+        loadDashboard();
+      } else {
+        showNotice(result.msg || 'Could not delete upload.', 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+  </script>
+</body>
+</html>

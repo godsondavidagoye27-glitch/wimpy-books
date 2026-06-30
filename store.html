@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Store — Wimpy Books</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a href="index.html">🏠 Home</a>
+    <a href="store.html" class="active">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html">📞 Contacts</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="store-header">
+    <h1>📚 Wimpy Books Library</h1>
+    <p>Preview every title first, read free stories online, and unlock premium downloads when you choose.</p>
+  </section>
+
+  <section class="search-bar">
+    <input type="text" id="searchInput" placeholder="🔍 Search by title, author, or genre..." onkeyup="filterBooks()">
+    <select id="genreFilter" onchange="filterBooks()">
+      <option value="all">All Genres</option>
+      <option value="fiction">Fiction</option>
+      <option value="self-help">Self-Help</option>
+      <option value="science">Science</option>
+      <option value="finance">Finance</option>
+      <option value="academic">Academic</option>
+      <option value="thriller">Thriller</option>
+      <option value="non-fiction">Non-Fiction</option>
+    </select>
+  </section>
+
+  <section class="store-tabs" aria-label="Store views">
+    <a href="store.html" class="tab-btn active" id="tabLibrary">Library</a>
+    <a href="store.html?view=trending" class="tab-btn" id="tabTrending">Trending</a>
+  </section>
+
+  <section class="store-grid" id="storeGrid"></section>
+
+  <footer class="leg">
+    <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
+  </footer>
+
+  <script src="auth.js"></script>
+  <script>
+    async function loadStore() {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      const books = view === 'trending' ? await fetch(`${getApiBase()}/trending`).then(r => r.json()) : await Books.getAll();
+      const grid = document.getElementById('storeGrid');
+      const header = document.querySelector('.store-header p');
+      if (view === 'trending') {
+        header.textContent = 'Trending books are ranked by traffic and number of reads from the community.';
+        document.getElementById('tabTrending').classList.add('active');
+        document.getElementById('tabLibrary').classList.remove('active');
+      } else {
+        header.textContent = 'Preview every title first, read free stories online, and unlock premium downloads when you choose.';
+        document.getElementById('tabLibrary').classList.add('active');
+        document.getElementById('tabTrending').classList.remove('active');
+      }
+      grid.innerHTML = books.map(book => {
+        const readLink = book.isFree ? `reader.html?id=${book.id}` : `display.html?id=${book.id}`;
+        const readText = book.isFree ? 'Read online' : 'Unlock access';
+        const coverStyle = book.coverImageData ? `background:url(${book.coverImageData}) center/cover no-repeat` : `background:${book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};`;
+        return `
+          <article class="book-card" data-genre="${book.genre || 'other'}">
+            <div class="book-cover" style="${coverStyle}">
+              <span class="cover-icon">📖</span>
+              <div class="preview-hover">${book.preview || book.description || 'A beautiful preview awaits.'}</div>
+            </div>
+            <h3>${book.title}</h3>
+            <p class="author">${book.author}</p>
+            <span class="tag">${book.genre || 'other'}</span>
+            <p class="preview-snippet">${book.preview || book.description}</p>
+            <div class="card-actions">
+              <a href="display.html?id=${book.id}" class="btn-small">Preview</a>
+              <a href="${readLink}" class="btn-small download">${readText}</a>
+            </div>
+            ${view === 'trending' ? `<div class="trend-stats"><span>${book.traffic || 0} traffic</span><span>${book.reads || 0} reads</span></div>` : ''}
+          </article>
+        `;
+      }).join('');
+    }
+
+    function filterBooks() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const genre = document.getElementById('genreFilter').value;
+      const cards = document.querySelectorAll('.book-card');
+      cards.forEach(card => {
+        const title = card.querySelector('h3').textContent.toLowerCase();
+        const author = card.querySelector('.author').textContent.toLowerCase();
+        const cardGenre = card.dataset.genre;
+        const matchSearch = title.includes(search) || author.includes(search);
+        const matchGenre = genre === 'all' || cardGenre === genre;
+        card.style.display = (matchSearch && matchGenre) ? 'block' : 'none';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadStore);
+  </script>
+</body>
+</html>

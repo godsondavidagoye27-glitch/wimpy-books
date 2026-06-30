@@ -1,0 +1,233 @@
+{
+  "users": [
+    {
+      "id": 1782821155103,
+      "name": "Tester",
+      "email": "tester-1782821155097@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "d43824ac0e9020e18f6987fb34bc85d5",
+      "badges": [
+        "New Reader"
+      ]
+    },
+    {
+      "id": 1782821155130,
+      "name": "Invalid",
+      "email": "invalid-1782821155122@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "c9ff9160a2db0741ff6f5103f151a2e2",
+      "badges": [
+        "New Reader"
+      ]
+    },
+    {
+      "id": 1782821155141,
+      "name": "Dash",
+      "email": "dashboard-1782821155137@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "be6fabdfdf1a3a9ad250480ad12fc31a",
+      "badges": [
+        "New Reader"
+      ]
+    },
+    {
+      "id": 1782821155174,
+      "name": "Reader",
+      "email": "reader-1782821155171@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "1912eebb160b497e58e994539358beda",
+      "badges": [
+        "New Reader"
+      ]
+    },
+    {
+      "id": 1782821155196,
+      "name": "Cover Tester",
+      "email": "cover-1782821155192@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "c80d3a3514455fbd291479f49784b8df",
+      "badges": [
+        "New Reader"
+      ]
+    },
+    {
+      "id": 1782821155207,
+      "name": "Trend",
+      "email": "trending-1782821155204@example.com",
+      "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
+      "token": "8976abc5d17038f619f2f927b4c31b00",
+      "badges": [
+        "New Reader"
+      ]
+    }
+  ],
+  "books": [
+    {
+      "id": 1782821155213,
+      "title": "Trending Book",
+      "author": "Trend Author",
+      "description": "A test upload for trending analytics.",
+      "cover": "linear-gradient(135deg,#667eea,#764ba2)",
+      "coverImageData": null,
+      "preview": "Preview text",
+      "isFree": true,
+      "price": 0,
+      "fileName": "trend.txt",
+      "fileType": "text/plain",
+      "fileData": "data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==",
+      "rating": 0,
+      "ratings": 0,
+      "comments": [],
+      "promoted": false,
+      "premiumUploader": true,
+      "traffic": 3,
+      "reads": 1,
+      "uploader": "trending-1782821155204@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.213Z"
+    },
+    {
+      "id": 1782821155200,
+      "title": "Cover Test Book",
+      "author": "Cover Author",
+      "description": "A book with cover data.",
+      "cover": "linear-gradient(135deg,#667eea,#764ba2)",
+      "coverImageData": "data:image/png;base64,iVBORw0KGgo=",
+      "preview": "Preview text",
+      "isFree": true,
+      "price": 0,
+      "fileName": "cover.txt",
+      "fileType": "text/plain",
+      "fileData": "data:text/plain;base64,SGVsbG8sIENvdmVyIQ==",
+      "rating": 0,
+      "ratings": 0,
+      "comments": [],
+      "promoted": false,
+      "premiumUploader": true,
+      "traffic": 0,
+      "reads": 0,
+      "uploader": "cover-1782821155192@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.200Z"
+    },
+    {
+      "id": 1782821155181,
+      "title": "Reader Test Book",
+      "author": "Reader Author",
+      "description": "A test upload for metadata and file routes.",
+      "cover": "linear-gradient(135deg,#667eea,#764ba2)",
+      "coverImageData": null,
+      "preview": "Preview text",
+      "isFree": true,
+      "price": 0,
+      "fileName": "story.txt",
+      "fileType": "text/plain",
+      "fileData": "data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==",
+      "rating": 0,
+      "ratings": 0,
+      "comments": [],
+      "promoted": false,
+      "premiumUploader": true,
+      "traffic": 2,
+      "reads": 0,
+      "uploader": "reader-1782821155171@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.181Z"
+    },
+    {
+      "id": 1782821155150,
+      "title": "Dashboard Book",
+      "author": "Dash Author",
+      "description": "A test upload for dashboard progress.",
+      "cover": "linear-gradient(135deg,#123456,#654321)",
+      "coverImageData": null,
+      "preview": "Preview text",
+      "isFree": true,
+      "price": 0,
+      "fileName": "book.txt",
+      "fileType": "text/plain",
+      "fileData": "data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==",
+      "rating": 0,
+      "ratings": 0,
+      "comments": [],
+      "promoted": false,
+      "premiumUploader": true,
+      "traffic": 1,
+      "reads": 1,
+      "uploader": "dashboard-1782821155137@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.150Z"
+    },
+    {
+      "id": 1,
+      "title": "The Silent Patient",
+      "author": "Alex Michaelides",
+      "genre": "thriller",
+      "description": "A gripping psychological thriller with a mysterious silence.",
+      "cover": "linear-gradient(135deg,#667eea,#764ba2)",
+      "preview": "Alicia Berenson lives in silence after a shocking act of violence. Her therapist is determined to uncover the truth before the mystery consumes them both.",
+      "isFree": true,
+      "price": 0,
+      "rating": 4.8,
+      "ratings": 2340,
+      "comments": [
+        {
+          "user": "Ada",
+          "text": "A brilliant mystery that keeps you guessing."
+        }
+      ],
+      "promoted": true,
+      "premiumUploader": true,
+      "traffic": 124,
+      "reads": 81,
+      "uploader": "demo@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.102Z"
+    },
+    {
+      "id": 2,
+      "title": "Atomic Habits",
+      "author": "James Clear",
+      "genre": "self-help",
+      "description": "Transform your habits and your life.",
+      "cover": "linear-gradient(135deg,#f093fb,#f5576c)",
+      "preview": "Tiny changes can compound over time into remarkable outcomes. Discover how to build systems that make the good habits easy and the bad habits difficult.",
+      "isFree": false,
+      "price": 9.99,
+      "rating": 4.7,
+      "ratings": 1180,
+      "comments": [
+        {
+          "user": "Mina",
+          "text": "Practical and motivating."
+        }
+      ],
+      "promoted": true,
+      "premiumUploader": true,
+      "traffic": 188,
+      "reads": 147,
+      "uploader": "demo@example.com",
+      "uploadedAt": "2026-06-30T12:05:55.102Z",
+      "sales": 1
+    }
+  ],
+  "purchases": [
+    {
+      "userId": 1782821155103,
+      "bookId": 2,
+      "amount": 9.99
+    }
+  ],
+  "promotions": [],
+  "readingProgress": [
+    {
+      "userId": 1782821155141,
+      "bookId": 1782821155150,
+      "position": 320,
+      "timeSpent": 0,
+      "lastReadAt": 1782821155169
+    },
+    {
+      "userId": 1782821155207,
+      "bookId": 1782821155213,
+      "position": 250,
+      "timeSpent": 0,
+      "lastReadAt": 1782821155220
+    }
+  ]
+}

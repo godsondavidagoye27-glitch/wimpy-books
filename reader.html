@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reading — Wimpy Books</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="reader-toolbar">
+    <a href="store.html" class="reader-back">← Back to Store</a>
+    <div class="reader-title" id="readerTitle">Loading...</div>
+    <div class="reader-controls">
+      <button onclick="jumpToPreviousChapter()" title="Previous chapter">◀</button>
+      <button onclick="jumpToNextChapter()" title="Next chapter">▶</button>
+      <button onclick="changeFontSize(-2)" title="Smaller text">A-</button>
+      <button onclick="changeFontSize(2)" title="Larger text">A+</button>
+      <button onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <div class="chapter-nav" id="chapterNav"></div>
+
+  <main class="reader-content" id="readerContent">
+    <div id="bookViewer" class="book-viewer">
+      <div id="bookCover" class="book-cover-full">
+        <div class="cover-inner">
+          <div id="coverImageLarge" class="cover-image">📖</div>
+          <button id="openBookBtn" class="btn-primary">Open Book</button>
+        </div>
+      </div>
+      <div id="bookPages" class="book-pages" aria-hidden="true"></div>
+      <div id="readerControls" class="reader-flip-controls" style="display:none;">
+        <button id="prevPage" class="btn-small">◀ Prev</button>
+        <span id="pageIndicator">1 / 1</span>
+        <button id="nextPage" class="btn-small">Next ▶</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bookId = params.get('id');
+
+    function decodeDataUrlText(dataUrl) {
+      try {
+        const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+        if (!match) return '';
+        const payload = match[2];
+        const bytes = Uint8Array.from(atob(payload), c => c.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function splitIntoChapters(text) {
+      const chapters = text.split(/\n(?=#{1,3}\s|Chapter\s+\d+)/i).map(part => part.trim()).filter(Boolean);
+      return chapters.length > 1 ? chapters : [text];
+    }
+
+    function decodeTextBody(body) {
+      if (typeof body === 'string') return body;
+      if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
+      if (ArrayBuffer.isView(body)) return new TextDecoder().decode(body);
+      return '';
+    }
+
+    async function renderFileContent(book) {
+      try {
+        const fileResult = await Books.getFileContent(book.id);
+        if (!fileResult?.ok || !fileResult.body) {
+          return `<div class="book-text">${(book.preview || book.description || 'No full content available.').replace(/\n/g, '<br>')}</div>`;
+        }
+
+        const type = (book.fileType || '').toLowerCase();
+        const name = (book.fileName || '').toLowerCase();
+        const contentType = fileResult.contentType || '';
+
+        if (type === 'application/pdf' || name.endsWith('.pdf') || contentType.includes('pdf')) {
+          const blobUrl = URL.createObjectURL(new Blob([fileResult.body], { type: contentType || 'application/pdf' }));
+          return `
+            <div class="pdf-reader-shell">
+              <div class="reader-panel">
+                <p class="reader-hint">PDF preview is embedded below. Use the toolbar to move through the book and keep your place.</p>
+              </div>
+              <iframe class="pdf-reader" src="${blobUrl}" frameborder="0"></iframe>
+            </div>
+          `;
+        }
+
+        if (type.startsWith('text/') || name.endsWith('.txt') || contentType.startsWith('text/')) {
+          const text = decodeTextBody(fileResult.body) || book.preview || book.description || 'No full content available.';
+          const chapters = splitIntoChapters(text);
+          const chapterMarkup = chapters.map((chapter, index) => `<section class="chapter-block" data-chapter="${index}"><h3>Chapter ${index + 1}</h3><div class="book-text">${chapter.replace(/\n/g, '<br>')}</div></section>`).join('');
+          return `<div class="chapter-list">${chapterMarkup}</div>`;
+        }
+
+        if (type.includes('epub') || name.endsWith('.epub')) {
+          const blobUrl = URL.createObjectURL(new Blob([fileResult.body], { type: contentType || 'application/epub+zip' }));
+          return `
+            <div class="empty-state">
+              <p>This EPUB file is ready for download and reading in a supported app.</p>
+              <a class="btn-primary" href="${blobUrl}" download="${book.fileName || 'book.epub'}">Download EPUB</a>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Unable to load book content.', error);
+      }
+
+      return `<div class="book-text">${(book.preview || book.description || 'No full content available.').replace(/\n/g, '<br>')}</div>`;
+    }
+
+    async function renderReader() {
+      const book = await Books.getById(bookId);
+      const content = document.getElementById('readerContent');
+      if (!book) {
+        content.innerHTML = '<h2 class="empty-state">❌ Book not found.</h2>';
+        return;
+      }
+
+      const user = Auth.getCurrentUser();
+      const bookIsFree = Boolean(book.isFree);
+      let access = { ok: true, canRead: bookIsFree, owned: false };
+      if (!bookIsFree) {
+        access = await Books.getAccess(book.id);
+      }
+      const purchased = Boolean(access.owned);
+      const canRead = bookIsFree || Boolean(access.canRead);
+      const accessError = !access.ok && access.msg && !access.msg.toLowerCase().includes('login required');
+
+      if (!bookIsFree && accessError && !canRead) {
+        content.innerHTML = `\n          <article class="book-article">\n            <h1>${book.title}</h1>\n            <p class="book-author">by ${book.author}</p>\n            <hr>\n            <p class="book-text">${book.preview || book.description}</p>\n            <div class="empty-state">\n              <h2>⚠️ Access check failed</h2>\n              <p>${access.msg || 'Unable to verify access right now. You can still view the preview.'}</p>\n              <button class="btn-primary" onclick="unlockBook(${book.id})">Unlock access</button>\n            </div>\n          </article>\n        `;
+        return;
+      }
+
+      if (!canRead) {
+        content.innerHTML = `\n          <article class="book-article">\n            <h1>${book.title}</h1>\n            <p class="book-author">by ${book.author}</p>\n            <hr>\n            <p class="book-text">${book.preview || book.description}</p>\n            <div class="empty-state">\n              <p>This book is locked for full reading access. Unlock it to continue reading.</p>\n              <button class="btn-primary" onclick="unlockBook(${book.id})">Unlock access</button>\n            </div>\n          </article>\n        `;
+        return;
+      }
+
+      // Show full-cover and prepare paginated reader
+      const viewer = document.getElementById('bookViewer');
+      const cover = document.getElementById('bookCover');
+      const coverImageLarge = document.getElementById('coverImageLarge');
+      coverImageLarge.style.background = book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : (book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
+      document.getElementById('readerTitle').textContent = book.title;
+      document.title = `Reading: ${book.title} — Wimpy Books`;
+
+      const openBtn = document.getElementById('openBookBtn');
+      openBtn.onclick = async () => {
+        await openPagedReader(book);
+      };
+
+      const chapterBlocks = Array.from(document.querySelectorAll('.chapter-block'));
+      const chapterNav = document.getElementById('chapterNav');
+      if (chapterBlocks.length > 1) {
+        chapterNav.innerHTML = chapterBlocks.map((block, index) => `<button class="chapter-btn" data-index="${index}">Chapter ${index + 1}</button>`).join('');
+        chapterNav.querySelectorAll('.chapter-btn').forEach(button => {
+          button.addEventListener('click', () => {
+            const index = Number(button.dataset.index);
+            const target = chapterBlocks[index];
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      } else {
+        chapterNav.innerHTML = '';
+      }
+      if (savedPosition > 100) {
+        document.getElementById('resumeBanner').style.display = 'block';
+        document.getElementById('resumeButton').onclick = () => {
+          window.scrollTo({ top: savedPosition, behavior: 'smooth' });
+        };
+      }
+      if (savedPosition > 0) {
+        window.scrollTo(0, savedPosition);
+      }
+
+      if (user) {
+        const badgeList = JSON.parse(localStorage.getItem('fb_badges') || '[]');
+        if (!badgeList.includes('Curious Reader')) badgeList.push('Curious Reader');
+        localStorage.setItem('fb_badges', JSON.stringify(badgeList));
+        const current = Auth.getCurrentUser();
+        if (current) {
+          current.badges = badgeList;
+          Auth.setCurrentUser(current);
+        }
+      }
+    }
+
+    async function unlockBook(id) {
+      if (!Auth.getCurrentUser()) {
+        const confirmed = await confirmAction('Please log in to unlock this title.');
+        if (confirmed) window.location.href = 'auth.html';
+        return;
+      }
+      const result = await Books.purchase(id);
+      if (result.ok) {
+        showNotice(result.msg || 'Access unlocked.', 'success');
+        location.reload();
+      } else {
+        showNotice(result.msg || 'Could not unlock this book.', 'error');
+      }
+    }
+
+    let fontSize = parseInt(localStorage.getItem('fb_fontsize') || '18');
+    document.getElementById('readerContent').style.fontSize = fontSize + 'px';
+    function changeFontSize(delta) {
+      fontSize = Math.max(12, Math.min(28, fontSize + delta));
+      document.getElementById('readerContent').style.fontSize = fontSize + 'px';
+      localStorage.setItem('fb_fontsize', fontSize);
+    }
+
+    let darkMode = localStorage.getItem('fb_reader_theme') !== 'light';
+    applyTheme();
+    function toggleTheme() {
+      darkMode = !darkMode;
+      localStorage.setItem('fb_reader_theme', darkMode ? 'dark' : 'light');
+      applyTheme();
+    }
+    function applyTheme() {
+      document.body.classList.toggle('reader-light', !darkMode);
+      document.getElementById('themeBtn').textContent = darkMode ? '🌙' : '☀️';
+    }
+
+    // --- Paged reader implementation ---
+    let pages = [];
+    let currentPage = 0;
+    async function openPagedReader(book) {
+      const fileResult = await Books.getFileContent(book.id);
+      let text = '';
+      if (fileResult && fileResult.ok) {
+        if (fileResult.isText) text = decodeTextBody(fileResult.body);
+        else if (fileResult.body instanceof ArrayBuffer || ArrayBuffer.isView(fileResult.body)) text = decodeTextBody(fileResult.body);
+      }
+      text = text || book.preview || book.description || '';
+      pages = paginateText(text);
+      renderPages(pages);
+    }
+
+    function paginateText(text) {
+      const font = parseInt(localStorage.getItem('fb_fontsize') || '18', 10) || 18;
+      // crude chars-per-page heuristic that adapts to viewport and font size
+      const area = window.innerWidth * window.innerHeight;
+      const base = Math.max(600, Math.floor(area / 3000));
+      const charsPerPage = Math.max(400, Math.floor(base * (18 / font)));
+      const result = [];
+      let pos = 0;
+      while (pos < text.length) {
+        let chunk = text.slice(pos, pos + charsPerPage);
+        // try to cut at last newline or space for nicer breaks
+        const lastNL = Math.max(chunk.lastIndexOf('\n'), chunk.lastIndexOf(' '));
+        if (lastNL > Math.floor(charsPerPage * 0.4)) {
+          chunk = chunk.slice(0, lastNL);
+          pos += lastNL + 1;
+        } else {
+          pos += charsPerPage;
+        }
+        result.push(chunk.trim());
+      }
+      if (result.length === 0) result.push(text);
+      return result;
+    }
+
+    function renderPages(pagesArray) {
+      const pagesMount = document.getElementById('bookPages');
+      pagesMount.innerHTML = '';
+      pagesArray.forEach((content, i) => {
+        const page = document.createElement('div');
+        page.className = 'book-page';
+        page.dataset.index = i;
+        page.innerHTML = `<div class="page-inner">${content.replace(/\n/g, '<br>')}</div>`;
+        pagesMount.appendChild(page);
+      });
+      document.getElementById('readerControls').style.display = 'flex';
+      document.getElementById('bookPages').ariaHidden = 'false';
+      currentPage = 0;
+      showPage(0);
+      document.getElementById('prevPage').onclick = () => showPage(currentPage - 1);
+      document.getElementById('nextPage').onclick = () => showPage(currentPage + 1);
+      // initialize keyboard and touch interactions once
+      initReaderInteractions();
+    }
+
+    function showPage(index) {
+      const all = Array.from(document.querySelectorAll('.book-page'));
+      if (index < 0) index = 0;
+      if (index >= all.length) index = all.length - 1;
+      const prevVisible = document.querySelector('.book-page.visible');
+      const prevIndex = prevVisible ? Number(prevVisible.dataset.index) : -1;
+      all.forEach((el, i) => {
+        el.classList.remove('visible', 'left', 'right');
+        if (i < index) el.classList.add('left');
+        if (i > index) el.classList.add('right');
+        if (i === index) el.classList.add('visible');
+      });
+      // add a short flipping animation to the previous and current pages
+      try {
+        if (prevIndex !== -1 && prevIndex !== index) {
+          const prevEl = all[prevIndex];
+          const currentEl = all[index];
+          if (prevEl) prevEl.classList.add('flipping');
+          if (currentEl) currentEl.classList.add('flipping');
+          setTimeout(() => {
+            if (prevEl) prevEl.classList.remove('flipping');
+            if (currentEl) currentEl.classList.remove('flipping');
+          }, 520);
+        }
+      } catch (err) { /* ignore animation failures */ }
+
+      currentPage = index;
+      document.getElementById('pageIndicator').textContent = `${currentPage + 1} / ${all.length}`;
+
+      // persist page index locally and to server (non-blocking)
+      try {
+        if (bookId) localStorage.setItem(`fb_reader_page_${bookId}`, String(currentPage));
+        if (Auth.getCurrentUser()) Books.savePage(bookId, currentPage).catch(() => {});
+      } catch (err) { /* ignore */ }
+    }
+
+    // --- keyboard & touch navigation ---
+    let readerControlsInitialized = false;
+    function initReaderInteractions() {
+      if (readerControlsInitialized) return;
+      readerControlsInitialized = true;
+
+      // Keyboard navigation: left/right, pageup/pagedown, space
+      document.addEventListener('keydown', (e) => {
+        const active = document.activeElement && document.activeElement.tagName;
+        if (active === 'INPUT' || active === 'TEXTAREA' || active === 'SELECT' || active === 'BUTTON') return;
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          showPage(currentPage - 1);
+        }
+        if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+          e.preventDefault();
+          showPage(currentPage + 1);
+        }
+        if (e.key === 'Home') {
+          e.preventDefault();
+          showPage(0);
+        }
+        if (e.key === 'End') {
+          e.preventDefault();
+          const all = document.querySelectorAll('.book-page');
+          showPage(all.length - 1);
+        }
+      });
+
+      // Touch swipe navigation for mobile
+      const pagesEl = document.getElementById('bookPages');
+      if (pagesEl) {
+        let touchStartX = 0, touchStartY = 0, touchMoveX = 0, touchMoveY = 0;
+        pagesEl.addEventListener('touchstart', (ev) => {
+          const t = ev.touches && ev.touches[0];
+          if (!t) return;
+          touchStartX = t.clientX; touchStartY = t.clientY; touchMoveX = touchStartX; touchMoveY = touchStartY;
+        }, { passive: true });
+        pagesEl.addEventListener('touchmove', (ev) => {
+          const t = ev.touches && ev.touches[0];
+          if (!t) return;
+          touchMoveX = t.clientX; touchMoveY = t.clientY;
+        }, { passive: true });
+        pagesEl.addEventListener('touchend', () => {
+          const dx = touchMoveX - touchStartX;
+          const dy = touchMoveY - touchStartY;
+          // horizontal swipe
+          if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+            if (dx < 0) showPage(currentPage + 1); else showPage(currentPage - 1);
+          }
+        });
+
+        // Wheel horizontal support for trackpad gestures
+        pagesEl.addEventListener('wheel', (ev) => {
+          if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY) && Math.abs(ev.deltaX) > 10) {
+            if (ev.deltaX > 0) showPage(currentPage + 1); else showPage(currentPage - 1);
+            ev.preventDefault();
+          }
+        }, { passive: false });
+      }
+    }
+
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+      const scrolled = window.scrollY;
+      const height = document.documentElement.scrollHeight - window.innerHeight;
+      const percent = height > 0 ? (scrolled / height) * 100 : 0;
+      document.getElementById('progressFill').style.width = percent + '%';
+      if (bookId) {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(async () => {
+          localStorage.setItem(`fb_reader_progress_${bookId}`, String(window.scrollY));
+          if (Auth.getCurrentUser()) {
+            await Books.saveProgress(bookId, window.scrollY);
+          }
+        }, 200);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', renderReader);
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "wimpy-books",
+  "version": "1.0.0",
+  "description": "Wimpy Books with a lightweight Node.js backend",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/backend.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0",
+    "stripe": "^22.3.0"
+  }
+}
