@@ -60,38 +60,48 @@
         return;
       }
       currentUser = (await syncBackendUser(currentUser)) || currentUser;
-      const apiBase = window.location.protocol === 'file:' || (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') ? 'http://127.0.0.1:3000/api' : '/api';
+      const apiBase = getApiBase();
+      const token = Auth.getSessionToken();
       let response = await fetch(`${apiBase}/dashboard`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (response.status === 401 || response.status === 403) {
         await showDashboardLoading('Syncing your login token and retrying dashboard access...');
         currentUser = (await syncBackendUser(currentUser)) || currentUser;
-        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${Auth.getSessionToken()}` } });
       }
       const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
       const statsMount = document.getElementById('dashboardStats');
       const mount = document.getElementById('dashboardList');
       if (!data.ok) {
         if (data.msg && data.msg.toLowerCase().includes('login required')) {
-          statsMount.innerHTML = '<div class="empty-state">Please log in to see your dashboard. <a href="auth.html" class="btn-small">Login</a></div>';
+          statsMount.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><h3>Sign in to view your dashboard</h3><p>Please log in to see your reading progress and uploads.</p><div class="empty-actions"><a href="auth.html" class="btn-primary">Log in</a></div></div>';
         } else {
-          statsMount.innerHTML = '<div class="empty-state">Unable to load dashboard.</div>';
+          statsMount.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Dashboard is temporarily unavailable</h3><p>Refresh the page and try again in a moment.</p></div>';
         }
         mount.innerHTML = '';
         return;
       }
+      const currentUserName = (Auth.getCurrentUser()?.name || 'Reader').split(' ')[0];
+      const badgesText = data.stats.badges?.length ? data.stats.badges.join(' • ') : 'No badges yet';
       statsMount.innerHTML = `
-        <div class="info-card">
-          <h2>Welcome back, ${Auth.getCurrentUser().name.split(' ')[0]}</h2>
-          <div class="meta-row">
-            <div><strong>${data.stats.uploadedCount}</strong><span>books uploaded</span></div>
-            <div><strong>${data.stats.booksRead}</strong><span>books read</span></div>
-            <div><strong>${Math.round(data.stats.timeSpent)}</strong><span>minutes read</span></div>
-            <div><strong>$${data.stats.earned.toFixed(2)}</strong><span>earned</span></div>
+        <div class="info-card dashboard-summary">
+          <div class="dashboard-intro">
+            <div>
+              <p class="panel-kicker">Your reading command center</p>
+              <h2>Welcome back, ${currentUserName}</h2>
+              <p class="subtle">Track your reading momentum, manage uploads, and keep your next book close at hand.</p>
+            </div>
+            <a href="upload.html" class="btn-primary">Publish a book</a>
           </div>
-          <div class="meta-row">
-            <strong>Badges:</strong> ${data.stats.badges.length ? data.stats.badges.join(', ') : 'None yet'}
+          <div class="stats-grid">
+            <div class="stat-card"><span class="stat-icon">📚</span><strong>${data.stats.uploadedCount}</strong><span>books uploaded</span></div>
+            <div class="stat-card"><span class="stat-icon">📖</span><strong>${data.stats.booksRead}</strong><span>books read</span></div>
+            <div class="stat-card"><span class="stat-icon">⏱️</span><strong>${Math.round(data.stats.timeSpent)}</strong><span>minutes read</span></div>
+            <div class="stat-card"><span class="stat-icon">💰</span><strong>$${data.stats.earned.toFixed(2)}</strong><span>earned</span></div>
+          </div>
+          <div class="badges-row">
+            <span class="badge-pill">🏅 ${badgesText}</span>
           </div>
         </div>
       `;
@@ -99,45 +109,66 @@
       const continueMount = document.getElementById('continueReading');
       if (data.recentReads && data.recentReads.length) {
         continueMount.innerHTML = `
-          <div class="info-card">
-            <h3>Continue reading</h3>
-            ${data.recentReads.map(read => `
+          <div class="info-card dashboard-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Picked up recently</p>
+                <h3>Continue reading</h3>
+              </div>
+              <a href="store.html" class="btn-small">Browse books</a>
+            </div>
+            <div class="dashboard-list">
+              ${data.recentReads.map(read => `
+                <article class="dashboard-item">
+                  <div>
+                    <h4>${read.title}</h4>
+                    <p>Last read ${new Date(read.lastReadAt).toLocaleString()}</p>
+                    <span class="tag">Position: ${read.position}</span>
+                    <span class="tag">Time: ${Math.round(read.timeSpent)} sec</span>
+                  </div>
+                  <div class="card-actions">
+                    <a href="reader.html?id=${read.bookId}" class="btn-small">Resume</a>
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        continueMount.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><h3>No recent reads yet</h3><p>Open a book from the store and your reading history will appear here.</p><div class="empty-actions"><a href="store.html" class="btn-primary">Explore books</a></div></div>';
+      }
+
+      if (!data.uploads.length) {
+        mount.innerHTML = '<div class="empty-state"><div class="empty-icon">⬆️</div><h3>No uploads yet</h3><p>Publish your first title to start building your library and share it with readers.</p><div class="empty-actions"><a href="upload.html" class="btn-primary">Publish a book</a></div></div>';
+        return;
+      }
+      mount.innerHTML = `
+        <div class="info-card dashboard-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Your library</p>
+              <h3>Your uploads</h3>
+            </div>
+            <a href="upload.html" class="btn-small">Add another</a>
+          </div>
+          <div class="dashboard-list">
+            ${data.uploads.map(book => `
               <article class="dashboard-item">
                 <div>
-                  <h4>${read.title}</h4>
-                  <p>Last read ${new Date(read.lastReadAt).toLocaleString()}</p>
-                  <span class="tag">Position: ${read.position}</span>
-                  <span class="tag">Time: ${Math.round(read.timeSpent)} sec</span>
+                  <h3>${book.title}</h3>
+                  <p>${book.description}</p>
+                  <span class="tag">${book.isFree ? 'Free' : 'Paid'}</span>
+                  <span class="tag">${book.promoted ? 'Sponsored' : 'Community'}</span>
                 </div>
                 <div class="card-actions">
-                  <a href="reader.html?id=${read.bookId}" class="btn-small">Resume</a>
+                  <a href="display.html?id=${book.id}" class="btn-small">View</a>
+                  <button class="btn-small" onclick="deleteUpload(${book.id})">Delete</button>
                 </div>
               </article>
             `).join('')}
           </div>
-        `;
-      } else {
-        continueMount.innerHTML = '<div class="empty-state">No recent reads yet. Open a book and start reading to save your progress.</div>';
-      }
-
-      if (!data.uploads.length) {
-        mount.innerHTML = '<div class="empty-state">No uploads yet. Publish your first title from the upload page.</div>';
-        return;
-      }
-      mount.innerHTML = data.uploads.map(book => `
-        <article class="dashboard-item">
-          <div>
-            <h3>${book.title}</h3>
-            <p>${book.description}</p>
-            <span class="tag">${book.isFree ? 'Free' : 'Paid'}</span>
-            <span class="tag">${book.promoted ? 'Sponsored' : 'Community'}</span>
-          </div>
-          <div class="card-actions">
-            <a href="display.html?id=${book.id}" class="btn-small">View</a>
-            <button class="btn-small" onclick="deleteUpload(${book.id})">Delete</button>
-          </div>
-        </article>
-      `).join('');
+        </div>
+      `;
     }
 
     async function deleteUpload(id) {

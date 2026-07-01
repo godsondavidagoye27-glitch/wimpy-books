@@ -5,8 +5,10 @@
 function getApiBase() {
   if (typeof window === 'undefined') return '/api';
   if (window.location.protocol === 'file:') return 'http://127.0.0.1:3000/api';
-  if (window.location.hostname === '127.0.0.1' && window.location.port === '3000') return `${window.location.origin}/api`;
-  return 'http://127.0.0.1:3000/api';
+  if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+    return `${window.location.origin}/api`;
+  }
+  return `${window.location.origin}/api`;
 }
 
 const API_BASE = getApiBase();
@@ -139,10 +141,26 @@ const Auth = {
     localStorage.setItem('fb_users', JSON.stringify(users));
   },
   getCurrentUser() {
-    return JSON.parse(localStorage.getItem('fb_current') || 'null');
+    try {
+      return JSON.parse(localStorage.getItem('fb_current') || 'null');
+    } catch (error) {
+      return null;
+    }
   },
   setCurrentUser(user) {
-    localStorage.setItem('fb_current', JSON.stringify(user));
+    if (user) {
+      localStorage.setItem('fb_current', JSON.stringify(user));
+      if (user.token) {
+        localStorage.setItem('fb_token', user.token);
+      }
+    } else {
+      localStorage.removeItem('fb_current');
+      localStorage.removeItem('fb_token');
+    }
+  },
+  getSessionToken() {
+    const currentUser = this.getCurrentUser();
+    return currentUser?.token || localStorage.getItem('fb_token') || '';
   },
   async logout() {
     try {

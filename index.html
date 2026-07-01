@@ -44,6 +44,32 @@
     </div>
   </section>
 
+  <section class="tester-banner">
+    <div>
+      <h3>👋 Quick start for testers</h3>
+      <p>Create an account, browse the store, and try uploading a short book in a few clicks.</p>
+    </div>
+    <a href="auth.html" class="btn-primary">Start testing</a>
+  </section>
+
+  <section class="guide-section">
+    <article class="guide-card">
+      <span class="guide-number">1</span>
+      <h3>For readers</h3>
+      <p>Sign in, browse the library, preview books, and continue reading from your dashboard.</p>
+    </article>
+    <article class="guide-card">
+      <span class="guide-number">2</span>
+      <h3>For uploaders</h3>
+      <p>Publish a sample book, add a cover image, and make it visible in the store.</p>
+    </article>
+    <article class="guide-card">
+      <span class="guide-number">3</span>
+      <h3>What to test</h3>
+      <p>Try search, trending views, preview pages, and the reading flow on mobile and desktop.</p>
+    </article>
+  </section>
+
   <section class="featured-strip">
     <article class="feature-card">
       <h3>Read anywhere</h3>
@@ -134,10 +160,14 @@
 
       try {
         await syncBackendUser(user);
-        let response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+        const token = Auth.getSessionToken();
+        let response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
         if (response.status === 401 || response.status === 403) {
-          await syncBackendUser(user);
-          response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}` } });
+          const synced = await syncBackendUser(user);
+          if (synced?.token) {
+            Auth.setCurrentUser(synced);
+          }
+          response = await fetch(`${getApiBase()}/dashboard`, { headers: { Authorization: `Bearer ${Auth.getSessionToken()}` } });
         }
         const data = await response.text().then(t => { try { return JSON.parse(t); } catch { return { ok:false }; } });
         if (!data.ok) {
