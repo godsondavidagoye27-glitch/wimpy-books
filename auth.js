@@ -285,17 +285,21 @@ function ensureNoticeContainer() {
   document.body.appendChild(container);
 }
 
-function showNotice(message, type = 'info', timeout = 3500) {
+function showToast(message, type = 'info', timeout = 3500) {
   ensureNoticeContainer();
   const toast = document.createElement('div');
-  toast.className = `site-notice ${type}`;
+  toast.className = `toast toast-${type}`;
   toast.textContent = message;
   document.getElementById('siteNoticeContainer').appendChild(toast);
-  window.setTimeout(() => toast.classList.add('show'), 10);
   window.setTimeout(() => {
-    toast.classList.remove('show');
-    toast.remove();
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+    window.setTimeout(() => toast.remove(), 300);
   }, timeout);
+}
+
+function showNotice(message, type = 'info', timeout = 3500) {
+  showToast(message, type, timeout);
 }
 
 async function confirmAction(message, title = 'Confirm') {
@@ -502,24 +506,37 @@ function updateNav() {
   nav.appendChild(li);
 }
 
+function applyTheme(theme = 'light') {
+  const resolvedTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+  document.body.classList.toggle('light-mode', resolvedTheme === 'light');
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
+}
+
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const nextTheme = isDark ? 'light' : 'dark';
+  localStorage.setItem('wimpybooks-theme', nextTheme);
+  applyTheme(nextTheme);
+}
+
 function updateThemeToggle() {
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
-  const theme = localStorage.getItem('theme') || 'dark';
-  btn.textContent = theme === 'dark' ? '🌙' : '☀️';
-  btn.onclick = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('theme', next);
-    document.body.classList.toggle('light-mode', next === 'light');
-    btn.textContent = next === 'dark' ? '🌙' : '☀️';
-  };
+  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'light';
+  applyTheme(savedTheme);
+  btn.onclick = toggleDarkMode;
 }
+
+window.toggleDarkMode = toggleDarkMode;
+window.showToast = showToast;
 
 document.addEventListener('DOMContentLoaded', async () => {
   updateNav();
   updateThemeToggle();
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  document.body.classList.toggle('light-mode', savedTheme === 'light');
+  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'light';
+  applyTheme(savedTheme);
   await Auth.restoreSupabaseSession();
   updateNav();
 });

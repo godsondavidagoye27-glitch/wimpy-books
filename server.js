@@ -56,7 +56,9 @@ function readData() {
         }
       ],
       purchases: [],
-      promotions: []
+      promotions: [],
+      contacts: [],
+      newsletter: []
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(seedData, null, 2));
     return seedData;
@@ -438,6 +440,36 @@ function startServer(port = PORT) {
         const saved = progressList.find(entry => entry.userId === user.id && entry.bookId === book.id);
         return sendJson(res, 200, { ok: true, position: newPosition, timeSpent: saved.timeSpent, lastReadAt: saved.lastReadAt });
       }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/contacts') {
+      const body = await parseBody(req);
+      const data = readData();
+      const name = String(body.name || '').trim();
+      const email = String(body.email || '').trim();
+      const subject = String(body.subject || '').trim();
+      const message = String(body.message || '').trim();
+      if (!name || !email || !message) {
+        return sendJson(res, 400, { ok: false, msg: 'Please fill in your name, email, and message.' });
+      }
+      data.contacts.push({ id: Date.now(), name, email, subject, message, createdAt: new Date().toISOString() });
+      writeData(data);
+      return sendJson(res, 200, { ok: true, msg: 'Message sent! We\'ll reply within 24 hours.' });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/newsletter') {
+      const body = await parseBody(req);
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        return sendJson(res, 400, { ok: false, msg: 'Please enter a valid email.' });
+      }
+      const data = readData();
+      const alreadySubscribed = data.newsletter.some(entry => entry.email === email);
+      if (!alreadySubscribed) {
+        data.newsletter.push({ id: Date.now(), email, createdAt: new Date().toISOString() });
+        writeData(data);
+      }
+      return sendJson(res, 200, { ok: true, msg: 'You\'re on the list! 📚' });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/checkout/create-session') {

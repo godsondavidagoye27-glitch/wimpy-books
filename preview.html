@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
+<title>Preview & Unlock — Wimpy Books</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a class="nav-logo" href="index.html" aria-label="Wimpy Books home">
+      <img src="logo.svg" alt="Wimpy Books logo" width="40" height="40">
+      <span>Wimpy Books</span>
+    </a>
+    <a href="index.html">🏠 Home</a>
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html">📞 Contacts</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="book-detail preview-shell">
+    <div class="detail-cover" id="previewCover">📖</div>
+    <div class="detail-info">
+      <span class="tag" id="previewTag">Preview</span>
+      <h1 id="previewTitle">Loading…</h1>
+      <p class="author-big" id="previewAuthor"></p>
+      <div class="meta-row">
+        <div><strong>Type:</strong> <span id="previewType"></span></div>
+        <div><strong>Price:</strong> <span id="previewPrice"></span></div>
+        <div><strong>Genre:</strong> <span id="previewGenre"></span></div>
+        <div><strong>Reads:</strong> <span id="previewReads"></span></div>
+      </div>
+
+      <div class="info-box" id="accessNotice">
+        <h3>Sample preview</h3>
+        <p>Read the first part of the book below, then unlock the full experience.</p>
+      </div>
+
+      <div class="preview-card" id="previewContent"></div>
+
+      <div class="detail-actions">
+        <button class="btn-primary" id="unlockButton">Unlock full book</button>
+        <a href="store.html" class="btn-outline">Back to store</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="leg">
+    <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
+  </footer>
+
+  <script src="auth.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bookId = params.get('id');
+    let currentBook = null;
+
+    function setCover(book) {
+      const cover = document.getElementById('previewCover');
+      if (book.coverImageData) {
+        cover.style.background = `url(${book.coverImageData}) center/cover no-repeat`;
+        cover.textContent = '';
+      } else {
+        cover.style.background = book.cover || 'linear-gradient(135deg,#667eea,#764ba2)';
+        cover.textContent = '📖';
+      }
+    }
+
+    function buildPreviewText(book) {
+      const base = book.preview || book.description || 'A beautifully written story is waiting for you.';
+      return `${base}\n\n${book.description ? `The full book continues with fresh chapters, thoughtful pacing, and a complete ending.` : 'This is a curated preview that gives you a feel for the voice and atmosphere before the unlock.'}`;
+    }
+
+    function renderLockedState(book) {
+      const container = document.getElementById('previewContent');
+      const notice = document.getElementById('accessNotice');
+      const unlockButton = document.getElementById('unlockButton');
+      const previewText = buildPreviewText(book).split('\n').slice(0, 8).join('\n');
+      container.innerHTML = `<p>${previewText.replace(/\n/g, '</p><p>')}</p>`;
+      notice.innerHTML = `<h3>Preview only</h3><p>${book.isFree ? 'This title is free to read now.' : `Unlock the full book for ₦${Number(book.price || 0).toLocaleString()} and continue.`}</p>`;
+      unlockButton.textContent = book.isFree ? 'Read now' : `Unlock for ₦${Number(book.price || 0).toLocaleString()}`;
+      unlockButton.onclick = async () => {
+        if (!Auth.getCurrentUser()) {
+          showToast('Please sign in to unlock this title.', 'error');
+          setTimeout(() => window.location.href = 'auth.html', 700);
+          return;
+        }
+        if (book.isFree) {
+          window.location.href = `reader.html?id=${book.id}`;
+          return;
+        }
+        const result = await Books.purchase(book.id);
+        if (result.ok) {
+          showToast('Access unlocked. Enjoy the full book.', 'success');
+          await loadBook();
+        } else {
+          showToast(result.msg || 'Unlock could not be completed.', 'error');
+        }
+      };
+    }
+
+    function renderUnlockedState(book) {
+      const container = document.getElementById('previewContent');
+      const notice = document.getElementById('accessNotice');
+      const unlockButton = document.getElementById('unlockButton');
+      const fullText = `${buildPreviewText(book)}\n\nYou now have full access to this title. Continue reading from the reader or return to the store.`;
+      container.innerHTML = `<p>${fullText.replace(/\n/g, '</p><p>')}</p>`;
+      notice.innerHTML = `<h3>Unlocked</h3><p>This book is ready to read in full.</p>`;
+      unlockButton.textContent = 'Open reader';
+      unlockButton.onclick = () => {
+        window.location.href = `reader.html?id=${book.id}`;
+      };
+    }
+
+    async function loadBook() {
+      if (!bookId) {
+        document.querySelector('.preview-shell').innerHTML = '<div class="empty-state">Book not found.</div>';
+        return;
+      }
+      const book = await Books.getById(bookId);
+      if (!book) {
+        document.querySelector('.preview-shell').innerHTML = '<div class="empty-state">Book not found.</div>';
+        return;
+      }
+      currentBook = book;
+      document.getElementById('previewTitle').textContent = book.title;
+      document.getElementById('previewAuthor').textContent = `by ${book.author}`;
+      document.getElementById('previewTag').textContent = book.genre || 'Featured';
+      document.getElementById('previewType').textContent = book.isFree ? 'Free' : 'Paid';
+      document.getElementById('previewPrice').textContent = book.isFree ? 'Free' : `₦${Number(book.price || 0).toLocaleString()}`;
+      document.getElementById('previewGenre').textContent = book.genre || 'Other';
+      document.getElementById('previewReads').textContent = book.reads || 0;
+      setCover(book);
+      const access = await Books.getAccess(book.id);
+      if (book.isFree || (access.ok && access.canRead)) {
+        renderUnlockedState(book);
+      } else {
+        renderLockedState(book);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadBook);
+  </script>
+</body>
+</html>

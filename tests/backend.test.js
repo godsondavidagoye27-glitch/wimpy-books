@@ -165,6 +165,26 @@ test('dashboard, upload access, and progress endpoints work', async () => {
   assert.equal(progressBody.position, 320);
 });
 
+test('contact and newsletter endpoints accept submissions', async () => {
+  const contactRes = await fetch(`${baseUrl}/contacts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Ava', email: 'ava@example.com', subject: 'Hello', message: 'Testing contact flow.' })
+  });
+  const contactBody = await contactRes.json();
+  assert.equal(contactRes.status, 200);
+  assert.equal(contactBody.ok, true);
+
+  const newsletterRes = await fetch(`${baseUrl}/newsletter`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'ava@example.com' })
+  });
+  const newsletterBody = await newsletterRes.json();
+  assert.equal(newsletterRes.status, 200);
+  assert.equal(newsletterBody.ok, true);
+});
+
 test('auth sync endpoint returns a valid dashboard token', async () => {
   const email = `sync-${Date.now()}@example.com`;
   const signupRes = await fetch(`${baseUrl}/auth/signup`, {

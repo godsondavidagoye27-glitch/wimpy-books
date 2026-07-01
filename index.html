@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
 <title>Wimpy Books — Preview, Read, and Unlock</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -93,7 +99,7 @@
     <div id="dashboardContent" class="dashboard-shell"></div>
   </section>
 
-  <section class="carousel-section">
+  <section class="carousel-section" id="featuredBooksSection">
     <div class="section-heading">
       <h2 class="section-title">🔥 Premium uploader picks</h2>
       <p class="section-copy">These are the trending books featured as premium-advert space, ranked by traffic and reads.</p>
@@ -111,16 +117,13 @@
     </div>
     <div class="quotes-grid">
       <article class="quote-card">
-        <p>“The reader experience feels premium, simple, and incredibly inviting.”</p>
-        <strong>— Maya, book lover</strong>
+        <p>📚 Join 1,000+ readers on Wimpy Books</p>
       </article>
       <article class="quote-card">
-        <p>“I can jump back into a book instantly, even after switching devices.”</p>
-        <strong>— Daniel, avid reader</strong>
+        <p>⭐ Discover new authors every week</p>
       </article>
       <article class="quote-card">
-        <p>“It feels like a library designed for people who actually want to read.”</p>
-        <strong>— Rina, student</strong>
+        <p>🔓 Preview before you pay — always</p>
       </article>
     </div>
   </section>
@@ -130,7 +133,10 @@
       <h3>Join the reading circle</h3>
       <p>Get book updates, new releases, and reading tips delivered to your inbox.</p>
     </div>
-    <a href="auth.html" class="btn-primary">Join now</a>
+    <div class="newsletter-form">
+      <input type="email" id="newsletterEmail" placeholder="Enter your email address">
+      <button class="btn-primary" type="button" onclick="subscribeNewsletter()">Join now</button>
+    </div>
   </section>
 
   <footer class="leg">
@@ -200,6 +206,26 @@
       }
     }
 
+    async function subscribeNewsletter() {
+      const email = document.getElementById('newsletterEmail').value.trim();
+      if (!email || !email.includes('@')) {
+        showToast('Please enter a valid email.', 'error');
+        return;
+      }
+      try {
+        const response = await fetch(`${getApiBase()}/newsletter`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const payload = await response.json();
+        showToast(payload.msg || 'You\'re on the list! 📚', payload.ok ? 'success' : 'error');
+      } catch (error) {
+        showToast('Unable to save your email right now.', 'error');
+      }
+      document.getElementById('newsletterEmail').value = '';
+    }
+
     async function initTrendingCarousel() {
       const track = document.getElementById('trendingCarousel');
       if (!track) return;
@@ -208,7 +234,7 @@
         const books = await response.json();
         const premiumBooks = (books || []).filter(book => book.premiumUploader || book.promoted || book.traffic > 0).slice(0, 4);
         if (!premiumBooks.length) {
-          track.innerHTML = '<article class="carousel-card"><h3>No trending books yet</h3><p>Premium uploader picks will appear here once a book starts attracting readers.</p></article>';
+          document.getElementById('featuredBooksSection').style.display = 'none';
           return;
         }
         track.innerHTML = premiumBooks.map((book, index) => `

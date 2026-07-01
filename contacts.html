@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Contacts — FreeBooks</title>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
+<title>Contact Us — Wimpy Books</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +23,6 @@
     <a href="store.html">📚 Store</a>
     <a href="upload.html">⬆️ Upload</a>
     <a href="contacts.html" class="active">📞 Contacts</a>
-    <a href="display.html?id=1">📖 Display</a>
   </nav>
 
   <section class="contact-wrapper">
@@ -30,14 +35,14 @@
           <span class="info-icon">📧</span>
           <div>
             <h4>Email</h4>
-            <p>hello@freebooks.com</p>
+            <p>support@wimpyco.ng</p>
           </div>
         </div>
         <div class="info-item">
           <span class="info-icon">📱</span>
           <div>
             <h4>Phone</h4>
-            <p>+234 800 FREEBOOK</p>
+            <p>+234 (1) 123-4567</p>
           </div>
         </div>
         <div class="info-item">
@@ -56,31 +61,27 @@
         </div>
       </div>
 
-      <div class="social-row">
-        <a href="#" class="social-btn">📘 Facebook</a>
-        <a href="#" class="social-btn">🐦 Twitter</a>
-        <a href="#" class="social-btn">📸 Instagram</a>
-      </div>
+
     </div>
 
     <div class="contact-form-box">
       <h2>Send us a Message</h2>
-      <form onsubmit="handleContact(event)">
+      <form id="contactForm" onsubmit="handleContact(event)">
         <div class="input-group">
           <label>Your Name</label>
-          <input type="text" placeholder="John Doe" required>
+          <input type="text" name="name" placeholder="John Doe" required>
         </div>
         <div class="input-group">
           <label>Your Email</label>
-          <input type="email" placeholder="you@example.com" required>
+          <input type="email" name="email" placeholder="you@example.com" required>
         </div>
         <div class="input-group">
           <label>Subject</label>
-          <input type="text" placeholder="How can we help?" required>
+          <input type="text" name="subject" placeholder="How can we help?" required>
         </div>
         <div class="input-group">
           <label>Message</label>
-          <textarea rows="5" placeholder="Write your message..." required></textarea>
+          <textarea name="message" rows="5" placeholder="Write your message..." required></textarea>
         </div>
         <button type="submit" class="btn-primary btn-full">✉ Send Message</button>
       </form>
@@ -89,18 +90,54 @@
   </section>
 
   <footer class="leg">
-    <p>© 2026 FreeBooks. Built for readers, by readers. 📖</p>
+    <p>© 2026 Wimpy Books — A Wimpy Co-operations product</p>
   </footer>
 
+<script src="auth.js"></script>
 <script>
-  function handleContact(e) {
+  async function handleContact(e) {
     e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    const name = data.get('name')?.toString().trim();
+    const email = data.get('email')?.toString().trim();
+    const subject = data.get('subject')?.toString().trim();
+    const message = data.get('message')?.toString().trim();
     const status = document.getElementById('contactStatus');
-    status.style.display = 'block';
-    status.className = 'status-box success';
-    status.innerHTML = '✅ Message sent! We\'ll reply within 24 hours.';
-    e.target.reset();
-    setTimeout(() => { status.style.display = 'none'; }, 4000);
+
+    if (!name || !email || !message) {
+      status.style.display = 'block';
+      status.className = 'status-box error';
+      status.textContent = 'Please fill in your name, email, and message.';
+      showToast('Please fill in your name, email, and message.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getApiBase()}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message })
+      });
+      const payload = await response.json();
+      if (response.ok && payload.ok) {
+        status.style.display = 'block';
+        status.className = 'status-box success';
+        status.textContent = '✅ Message sent! We\'ll reply within 24 hours.';
+        showToast('Message sent! We\'ll reply within 24 hours.', 'success');
+        form.reset();
+      } else {
+        status.style.display = 'block';
+        status.className = 'status-box error';
+        status.textContent = payload.msg || 'Unable to send message right now.';
+        showToast(payload.msg || 'Unable to send message right now.', 'error');
+      }
+    } catch (error) {
+      status.style.display = 'block';
+      status.className = 'status-box error';
+      status.textContent = 'Unable to send message right now.';
+      showToast('Unable to send message right now.', 'error');
+    }
   }
 </script>
 

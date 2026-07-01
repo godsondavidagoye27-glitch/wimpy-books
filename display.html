@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
 <title>Book Details — Wimpy Books</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -41,10 +47,9 @@
       <div id="ownerActions"></div>
       <div class="share-row">
         <span>Share:</span>
-        <a href="#">📘</a>
-        <a href="#">🐦</a>
-        <a href="#">📧</a>
-        <a href="#">🔗</a>
+        <a href="https://facebook.com/wimpybooks" target="_blank" rel="noreferrer">📘</a>
+        <a href="https://twitter.com/wimpybooks" target="_blank" rel="noreferrer">🐦</a>
+        <a href="mailto:support@wimpyco.ng" target="_blank" rel="noreferrer">📧</a>
       </div>
 
       <div class="comment-box">
@@ -104,7 +109,7 @@
             <h3>${book.title}</h3>
             <p>${book.preview || book.description || 'A refined read from a premium uploader.'}</p>
             <div class="card-actions">
-              <a href="display.html?id=${book.id}" class="btn-small">View</a>
+              <a href="preview.html?id=${book.id}" class="btn-small">View</a>
               <a href="reader.html?id=${book.id}" class="btn-small download">Read</a>
             </div>
           </div>
@@ -142,10 +147,10 @@
           if (!confirm('Delete this book permanently?')) return;
           const result = await Books.delete(book.id);
           if (result.ok) {
-            alert('Book removed successfully.');
+            showToast('Book removed successfully.', 'success');
             window.location.href = 'store.html';
           } else {
-            alert(result.msg || 'Could not delete the book.');
+            showToast(result.msg || 'Could not delete the book.', 'error');
           }
         };
       }
@@ -197,7 +202,7 @@
       stars.querySelectorAll('.star-btn').forEach(button => {
         button.addEventListener('click', async () => {
           if (!user) {
-            alert('Please log in to rate books.');
+            showToast('Please log in to rate books.', 'error');
             return;
           }
           await Books.rate(book.id, Number(button.dataset.score));
@@ -243,7 +248,7 @@
           <h3>${book.title}</h3>
           <p class="author">${book.author}</p>
           <span class="tag">${book.genre || 'featured'}</span>
-          <div class="card-actions"><a href="display.html?id=${book.id}" class="btn-small">Open</a></div>
+          <div class="card-actions"><a href="preview.html?id=${book.id}" class="btn-small">Open</a></div>
         </article>
       `).join('');
     }

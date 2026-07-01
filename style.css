@@ -1,5 +1,10 @@
 :root {
   --background: linear-gradient(135deg, #1a1410 0%, #2d2318 50%, #1f1815 100%);
+  --bg: #1a1410;
+  --surface: rgba(255,255,255,0.08);
+  --text: #f5f1e8;
+  --muted: rgba(245,241,232,0.68);
+  --border: rgba(212,175,55,0.25);
   --accent: #d4af37;
   --accent-2: #c89b4a;
   --card-bg: rgba(255, 255, 255, 0.08);
@@ -10,8 +15,14 @@
   --shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
 }
 
-body.light-mode {
+body.light-mode,
+html[data-theme="light"] {
   --background: linear-gradient(135deg, #fef8f0 0%, #f5ede2 50%, #fef8f0 100%);
+  --bg: #fef8f0;
+  --surface: rgba(139,111,71,0.08);
+  --text: #2a2520;
+  --muted: #6b6055;
+  --border: rgba(139,111,71,0.25);
   --accent: #8b6f47;
   --accent-2: #a67c52;
   --card-bg: rgba(139, 111, 71, 0.08);
@@ -1393,6 +1404,27 @@ body::after {
   flex-direction: column;
   gap: 12px;
   z-index: 1200;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+  animation: slideUp 0.3s ease;
+}
+.toast-info { background: #1a1a2e; color: #fff; }
+.toast-success { background: #1a7a4a; color: #fff; }
+.toast-error { background: #e63a2e; color: #fff; }
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
 }
 .site-notice {
   min-width: 260px;

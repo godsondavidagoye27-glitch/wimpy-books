@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
 <title>Store — Wimpy Books</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -30,8 +36,8 @@
   </section>
 
   <section class="search-bar">
-    <input type="text" id="searchInput" placeholder="🔍 Search by title, author, or genre..." onkeyup="filterBooks()">
-    <select id="genreFilter" onchange="filterBooks()">
+    <input type="text" id="searchInput" placeholder="🔍 Search by title, author, or genre...">
+    <select id="genreFilter">
       <option value="all">All Genres</option>
       <option value="fiction">Fiction</option>
       <option value="self-help">Self-Help</option>
@@ -56,13 +62,24 @@
 
   <script src="auth.js"></script>
   <script>
-    async function loadStore() {
-      const params = new URLSearchParams(window.location.search);
-      const view = params.get('view');
-      const books = view === 'trending' ? await fetch(`${getApiBase()}/trending`).then(r => r.json()) : await Books.getAll();
+    let storeBooks = [];
+    let activeView = 'library';
+
+    function getSampleBooks() {
+      return [
+        { id: 'sample-1', title: 'The Quiet Morning', author: 'Ada Bello', description: 'A calm, reflective story about starting again.', genre: 'fiction', isFree: true, price: 0, coverImageData: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80', preview: 'A beautiful story about healing at your own pace.', promoted: true },
+        { id: 'sample-2', title: 'Money in Motion', author: 'Kemi Yusuf', description: 'A practical guide to personal finance for young professionals.', genre: 'finance', isFree: false, price: 4999, coverImageData: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80', preview: 'Learn to grow your income and build lasting habits.', promoted: true },
+        { id: 'sample-3', title: 'Parenting with Grace', author: 'Tunde Cole', description: 'A modern guide for thoughtful parenting.', genre: 'self-help', isFree: true, price: 0, coverImageData: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=900&q=80', preview: 'Useful ideas that feel realistic and encouraging.', promoted: false },
+        { id: 'sample-4', title: 'Beyond the Stars', author: 'Nneka Iro', description: 'A short science fiction story about first contact.', genre: 'science', isFree: true, price: 0, coverImageData: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80', preview: 'An intimate and vivid glimpse into another world.', promoted: false },
+        { id: 'sample-5', title: 'The Art of Listening', author: 'Bolu Sanni', description: 'A thoughtful collection of essays and reflections.', genre: 'non-fiction', isFree: false, price: 2999, coverImageData: 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80', preview: 'A warm, practical collection for readers who want more depth.', promoted: true },
+        { id: 'sample-6', title: 'History of Lagos', author: 'Sola Adebayo', description: 'A compact guide to the city’s cultural landmarks.', genre: 'academic', isFree: true, price: 0, coverImageData: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80', preview: 'A quick journey through the city’s layered history.', promoted: false }
+      ];
+    }
+
+    function renderStore(books) {
       const grid = document.getElementById('storeGrid');
       const header = document.querySelector('.store-header p');
-      if (view === 'trending') {
+      if (activeView === 'trending') {
         header.textContent = 'Trending books are ranked by traffic and number of reads from the community.';
         document.getElementById('tabTrending').classList.add('active');
         document.getElementById('tabLibrary').classList.remove('active');
@@ -71,12 +88,25 @@
         document.getElementById('tabLibrary').classList.add('active');
         document.getElementById('tabTrending').classList.remove('active');
       }
+
+      if (!books.length) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📚</div>
+            <h3>No books yet</h3>
+            <p>Be the first to upload and fill the shelf.</p>
+            <div class="empty-actions"><a href="upload.html" class="btn-primary">Upload a book</a></div>
+          </div>`;
+        return;
+      }
+
       grid.innerHTML = books.map(book => {
         const readLink = book.isFree ? `reader.html?id=${book.id}` : `display.html?id=${book.id}`;
         const readText = book.isFree ? 'Read online' : 'Unlock access';
         const coverStyle = book.coverImageData ? `background:url(${book.coverImageData}) center/cover no-repeat` : `background:${book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};`;
+        const priceLabel = Number(book.price || 0) > 0 ? `₦${Number(book.price || 0).toLocaleString()}` : 'Free';
         return `
-          <article class="book-card" data-genre="${book.genre || 'other'}">
+          <article class="book-card" data-genre="${(book.genre || 'other').toLowerCase()}">
             <div class="book-cover" style="${coverStyle}">
               <span class="cover-icon">📖</span>
               <div class="preview-hover">${book.preview || book.description || 'A beautiful preview awaits.'}</div>
@@ -86,10 +116,10 @@
             <span class="tag">${book.genre || 'other'}</span>
             <p class="preview-snippet">${book.preview || book.description}</p>
             <div class="card-actions">
-              <a href="display.html?id=${book.id}" class="btn-small">Preview</a>
+              <a href="preview.html?id=${book.id}" class="btn-small">Preview</a>
               <a href="${readLink}" class="btn-small download">${readText}</a>
             </div>
-            ${view === 'trending' ? `<div class="trend-stats"><span>${book.traffic || 0} traffic</span><span>${book.reads || 0} reads</span></div>` : ''}
+            <div class="card-meta"><span>${priceLabel}</span>${activeView === 'trending' ? `<span>${book.traffic || 0} traffic</span><span>${book.reads || 0} reads</span>` : ''}</div>
           </article>
         `;
       }).join('');
@@ -99,17 +129,56 @@
       const search = document.getElementById('searchInput').value.toLowerCase();
       const genre = document.getElementById('genreFilter').value;
       const cards = document.querySelectorAll('.book-card');
+      let visibleCount = 0;
       cards.forEach(card => {
         const title = card.querySelector('h3').textContent.toLowerCase();
         const author = card.querySelector('.author').textContent.toLowerCase();
         const cardGenre = card.dataset.genre;
-        const matchSearch = title.includes(search) || author.includes(search);
+        const matchSearch = title.includes(search) || author.includes(search) || card.textContent.toLowerCase().includes(search);
         const matchGenre = genre === 'all' || cardGenre === genre;
-        card.style.display = (matchSearch && matchGenre) ? 'block' : 'none';
+        const isVisible = matchSearch && matchGenre;
+        card.style.display = isVisible ? 'block' : 'none';
+        if (isVisible) visibleCount += 1;
       });
+      const emptyState = document.querySelector('.empty-state');
+      if (!visibleCount && !emptyState) {
+        const grid = document.getElementById('storeGrid');
+        grid.innerHTML += `<div class="empty-state"><div class="empty-icon">🔎</div><h3>No results for “${search}”</h3><p>Try another title, author, or genre.</p></div>`;
+      } else if (emptyState && search) {
+        emptyState.remove();
+      }
     }
 
-    document.addEventListener('DOMContentLoaded', loadStore);
+    async function loadStore() {
+      const params = new URLSearchParams(window.location.search);
+      activeView = params.get('view') === 'trending' ? 'trending' : 'library';
+      const grid = document.getElementById('storeGrid');
+      grid.innerHTML = '<div class="dashboard-loading"><div class="loader"></div><h3>Loading the library</h3></div>';
+      try {
+        const books = activeView === 'trending' ? await fetch(`${getApiBase()}/trending`).then(r => r.json()) : await Books.getAll();
+        storeBooks = Array.isArray(books) && books.length ? books : getSampleBooks();
+        renderStore(storeBooks);
+      } catch (error) {
+        storeBooks = getSampleBooks();
+        renderStore(storeBooks);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('searchInput');
+      const genreFilter = document.getElementById('genreFilter');
+      searchInput.addEventListener('input', debounce(filterBooks, 300));
+      genreFilter.addEventListener('change', filterBooks);
+      loadStore();
+    });
+
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    }
   </script>
 </body>
 </html>

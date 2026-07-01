@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Preview, read and unlock digital books. Nigeria's growing digital library.">
+<meta property="og:title" content="Wimpy Books">
+<meta property="og:description" content="Preview, read and unlock digital books.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
 <title>Upload — Wimpy Books</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -93,12 +99,12 @@
           </select>
         </div>
         <div class="input-group">
-          <label>💸 Price (USD)</label>
-          <input type="number" id="price" min="0" step="0.01" value="0" placeholder="0.00">
+          <label>💸 Price (₦)</label>
+          <input type="number" id="price" min="0" step="100" value="0" placeholder="0">
         </div>
         <div class="checkbox-group">
           <input type="checkbox" id="promoted">
-          <label for="promoted">Promote this title with a sponsored ad for $4.99</label>
+          <label for="promoted">Promote this title with a sponsored ad for ₦4,999</label>
         </div>
         <div class="checkbox-group">
           <input type="checkbox" id="terms" required>
@@ -181,15 +187,23 @@
         return;
       }
 
+      if (!document.getElementById('bookTitle').value.trim() || !document.getElementById('authorName').value.trim() || !document.getElementById('genre').value || !document.getElementById('description').value.trim()) {
+        showToast('Please complete the required book details.', 'error');
+        btn.disabled = false;
+        btn.textContent = '🚀 Publish Book';
+        return;
+      }
+
       const payload = {
-        title: document.getElementById('bookTitle').value,
-        author: document.getElementById('authorName').value,
+        title: document.getElementById('bookTitle').value.trim(),
+        author: document.getElementById('authorName').value.trim(),
         genre: document.getElementById('genre').value,
-        description: document.getElementById('description').value,
-        preview: document.getElementById('preview').value || document.getElementById('description').value,
+        description: document.getElementById('description').value.trim(),
+        preview: document.getElementById('preview').value.trim() || document.getElementById('description').value.trim(),
         cover: document.getElementById('coverColor').value,
         isFree: document.getElementById('accessType').value === 'free',
         price: Number(document.getElementById('price').value || 0),
+        currency: 'NGN',
         promoted: document.getElementById('promoted').checked,
         uploader: Auth.getCurrentUser().email,
         fileName: bookFile.name,
@@ -206,13 +220,14 @@
       status.style.display = 'block';
       if (result && result.ok === true && result.id) {
         status.className = 'status-box success';
-        status.innerHTML = `✅ <strong>Success!</strong> “${result.title}” is live. <a href="display.html?id=${result.id}" style="color:inherit;">View it →</a>`;
-        showNotice('Book uploaded successfully.', 'success');
+        status.innerHTML = `✅ <strong>Success!</strong> “${result.title}” is waiting for review. <a href="display.html?id=${result.id}" style="color:inherit;">View it →</a>`;
+        showToast('📚 Book submitted! It will appear after review.', 'success');
+        setTimeout(() => window.location.href = 'index.html', 1800);
       } else {
         const msg = result?.msg || 'Could not publish this book. Please try again.';
         status.className = 'status-box error';
         status.innerHTML = `⚠️ ${msg}`;
-        showNotice(msg, 'error');
+        showToast(msg, 'error');
       }
       document.getElementById('uploadForm').reset();
       coverPreviewImage.src = '';
