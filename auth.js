@@ -487,23 +487,27 @@ function updateNav() {
   const user = Auth.getCurrentUser();
   const nav = document.querySelector('.one');
   if (!nav) return;
-  const old = nav.querySelector('.nav-auth');
-  if (old) old.remove();
 
-  const li = document.createElement('a');
-  li.className = 'nav-auth';
+  let authLink = nav.querySelector('.nav-auth');
+  if (!authLink) {
+    authLink = document.createElement('a');
+    authLink.className = 'nav-auth';
+    nav.appendChild(authLink);
+  }
+
   if (user) {
-    li.href = '#';
-    li.innerHTML = `👤 ${user.name.split(' ')[0]} ▾`;
-    li.onclick = (e) => {
+    authLink.href = '#';
+    authLink.innerHTML = `👤 ${user.name.split(' ')[0]} ▾`;
+    authLink.onclick = (e) => {
       e.preventDefault();
       if (confirm(`Logout as ${user.name}?`)) Auth.logout();
     };
   } else {
-    li.href = 'auth.html';
-    li.innerHTML = '🔐 Login';
+    authLink.href = 'auth.html';
+    authLink.innerHTML = '🔐 Login';
+    authLink.onclick = null;
   }
-  nav.appendChild(li);
+  authLink.classList.toggle('is-user', Boolean(user));
 }
 
 function applyTheme(theme = 'light') {

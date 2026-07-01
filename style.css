@@ -106,11 +106,29 @@ body::after {
   padding: 16px 28px;
   justify-content: center;
   flex-wrap: wrap;
+  align-items: center;
   border-radius: 50px;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px);
   border: 1px solid var(--card-border);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  position: sticky;
+  top: 16px;
+  z-index: 1000;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+
+.nav-auth {
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.nav-auth.is-user {
+  background: rgba(212, 175, 55, 0.16);
 }
 
 .nav-logo {
