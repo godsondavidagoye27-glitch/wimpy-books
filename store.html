@@ -157,6 +157,14 @@
       try {
         const books = activeView === 'trending' ? await fetch(`${getApiBase()}/trending`).then(r => r.json()) : await Books.getAll();
         storeBooks = Array.isArray(books) && books.length ? books : getSampleBooks();
+        // Cache the loaded books locally so client-only sample/template
+        // books are available to other pages (preview/reader) that
+        // try to load by id from the client side.
+        try {
+          localStorage.setItem('fb_books', JSON.stringify(storeBooks));
+        } catch (e) {
+          // ignore quota errors in some browsers
+        }
         renderStore(storeBooks);
       } catch (error) {
         storeBooks = getSampleBooks();
