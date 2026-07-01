@@ -21,7 +21,6 @@
     <a href="store.html">📚 Store</a>
     <a href="upload.html">⬆️ Upload</a>
     <a href="contacts.html">📞 Contacts</a>
-    <a href="auth.html" id="navAuth">🔐 Sign In</a>
     <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
   </nav>
 
@@ -158,10 +157,10 @@
             <p>Your reading progress, uploads, and rewards will appear here.</p>
             <a href="auth.html" class="btn-primary">Sign in / Create account</a>
           </div>`;
-        document.getElementById('navAuth').textContent = '🔐 Sign In';
+        updateNav();
         return;
       }
-      document.getElementById('navAuth').textContent = `👤 ${user.name.split(' ')[0]}`;
+      updateNav();
       mount.innerHTML = '<div class="dashboard-loading"><div class="loader"></div><h3>Loading your dashboard</h3><p>Restoring your session and syncing your stats.</p></div>';
 
       try {

@@ -488,11 +488,19 @@ function updateNav() {
   const nav = document.querySelector('.one');
   if (!nav) return;
 
-  let authLink = nav.querySelector('.nav-auth');
+  let authLink = nav.querySelector('.nav-auth') || document.getElementById('navAuth');
+  if (authLink && !authLink.classList.contains('nav-auth')) {
+    authLink.classList.add('nav-auth');
+  }
   if (!authLink) {
     authLink = document.createElement('a');
     authLink.className = 'nav-auth';
-    nav.appendChild(authLink);
+    const themeButton = nav.querySelector('#themeToggle');
+    if (themeButton) {
+      nav.insertBefore(authLink, themeButton);
+    } else {
+      nav.appendChild(authLink);
+    }
   }
 
   if (user) {

@@ -1,71 +1,71 @@
 {
   "users": [
     {
-      "id": 1782903655281,
+      "id": 1782904398699,
       "name": "Tester",
-      "email": "tester-1782903655274@example.com",
+      "email": "tester-1782904398691@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "c7ea61ff61a4cd1b3fb756d17302a27c",
+      "token": "927aaa0d344f99d4b6b6eef69ab54297",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655318,
+      "id": 1782904398735,
       "name": "Invalid",
-      "email": "invalid-1782903655312@example.com",
+      "email": "invalid-1782904398728@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "96e5595fdc1676c81b89316fd12e439d",
+      "token": "7fb3d6bc019ae6328dd9c3c40d407a85",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655335,
+      "id": 1782904398756,
       "name": "Dash",
-      "email": "dashboard-1782903655329@example.com",
+      "email": "dashboard-1782904398749@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "2cca072545ffc5301fcaa6b97fda0c3d",
+      "token": "5837cea92316e543c74b590132c616bd",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655386,
+      "id": 1782904398822,
       "name": "Sync User",
-      "email": "sync-1782903655382@example.com",
+      "email": "sync-1782904398811@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "ee340c566aa2fb7437ada8fe630a2c5c",
+      "token": "fc12f17d740513ea81a6db0fa26523d6",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655404,
+      "id": 1782904398843,
       "name": "Reader",
-      "email": "reader-1782903655401@example.com",
+      "email": "reader-1782904398838@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "081c7b5c30fb6b557a7e9da1c79de3ec",
+      "token": "c18d131eefa683dea63fe476fda23ce9",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655428,
+      "id": 1782904398871,
       "name": "Cover Tester",
-      "email": "cover-1782903655424@example.com",
+      "email": "cover-1782904398866@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "5d23df2fce4f5512e6e73c3e7758ee8d",
+      "token": "317f4967ed962afcbee8f6f8e4a2d3be",
       "badges": [
         "New Reader"
       ]
     },
     {
-      "id": 1782903655443,
+      "id": 1782904398884,
       "name": "Trend",
-      "email": "trending-1782903655439@example.com",
+      "email": "trending-1782904398881@example.com",
       "password": "fcf730b6d95236ecd3c9fc2d92d7b6b2bb061514961aec041d6c7a7192f592e4",
-      "token": "312117d9b8c7557ddf0b4df0c6bbc371",
+      "token": "480ce8da78a9aeb388ad2d289d831cdb",
       "badges": [
         "New Reader"
       ]
@@ -73,7 +73,7 @@
   ],
   "books": [
     {
-      "id": 1782903655451,
+      "id": 1782904398891,
       "title": "Trending Book",
       "author": "Trend Author",
       "description": "A test upload for trending analytics.",
@@ -92,11 +92,11 @@
       "premiumUploader": true,
       "traffic": 3,
       "reads": 1,
-      "uploader": "trending-1782903655439@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.451Z"
+      "uploader": "trending-1782904398881@example.com",
+      "uploadedAt": "2026-07-01T11:13:18.891Z"
     },
     {
-      "id": 1782903655434,
+      "id": 1782904398876,
       "title": "Cover Test Book",
       "author": "Cover Author",
       "description": "A book with cover data.",
@@ -115,11 +115,11 @@
       "premiumUploader": true,
       "traffic": 0,
       "reads": 0,
-      "uploader": "cover-1782903655424@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.434Z"
+      "uploader": "cover-1782904398866@example.com",
+      "uploadedAt": "2026-07-01T11:13:18.876Z"
     },
     {
-      "id": 1782903655409,
+      "id": 1782904398849,
       "title": "Reader Test Book",
       "author": "Reader Author",
       "description": "A test upload for metadata and file routes.",
@@ -138,11 +138,11 @@
       "premiumUploader": true,
       "traffic": 2,
       "reads": 0,
-      "uploader": "reader-1782903655401@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.409Z"
+      "uploader": "reader-1782904398838@example.com",
+      "uploadedAt": "2026-07-01T11:13:18.849Z"
     },
     {
-      "id": 1782903655344,
+      "id": 1782904398770,
       "title": "Dashboard Book",
       "author": "Dash Author",
       "description": "A test upload for dashboard progress.",
@@ -161,8 +161,8 @@
       "premiumUploader": true,
       "traffic": 1,
       "reads": 1,
-      "uploader": "dashboard-1782903655329@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.344Z"
+      "uploader": "dashboard-1782904398749@example.com",
+      "uploadedAt": "2026-07-01T11:13:18.771Z"
     },
     {
       "id": 1,
@@ -187,7 +187,7 @@
       "traffic": 124,
       "reads": 81,
       "uploader": "demo@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.279Z"
+      "uploadedAt": "2026-07-01T11:13:18.697Z"
     },
     {
       "id": 2,
@@ -212,13 +212,13 @@
       "traffic": 188,
       "reads": 147,
       "uploader": "demo@example.com",
-      "uploadedAt": "2026-07-01T11:00:55.279Z",
+      "uploadedAt": "2026-07-01T11:13:18.697Z",
       "sales": 1
     }
   ],
   "purchases": [
     {
-      "userId": 1782903655281,
+      "userId": 1782904398699,
       "bookId": 2,
       "amount": 9.99
     }
@@ -226,35 +226,35 @@
   "promotions": [],
   "contacts": [
     {
-      "id": 1782903655370,
+      "id": 1782904398802,
       "name": "Ava",
       "email": "ava@example.com",
       "subject": "Hello",
       "message": "Testing contact flow.",
-      "createdAt": "2026-07-01T11:00:55.370Z"
+      "createdAt": "2026-07-01T11:13:18.802Z"
     }
   ],
   "newsletter": [
     {
-      "id": 1782903655376,
+      "id": 1782904398809,
       "email": "ava@example.com",
-      "createdAt": "2026-07-01T11:00:55.376Z"
+      "createdAt": "2026-07-01T11:13:18.809Z"
     }
   ],
   "readingProgress": [
     {
-      "userId": 1782903655335,
-      "bookId": 1782903655344,
+      "userId": 1782904398756,
+      "bookId": 1782904398770,
       "position": 320,
       "timeSpent": 0,
-      "lastReadAt": 1782903655363
+      "lastReadAt": 1782904398793
     },
     {
-      "userId": 1782903655443,
-      "bookId": 1782903655451,
+      "userId": 1782904398884,
+      "bookId": 1782904398891,
       "position": 250,
       "timeSpent": 0,
-      "lastReadAt": 1782903655466
+      "lastReadAt": 1782904398904
     }
   ]
 }
