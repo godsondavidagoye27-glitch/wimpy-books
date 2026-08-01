@@ -13,12 +13,108 @@ function getApiBase() {
 
 const API_BASE = getApiBase();
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function safeTextToParagraphs(value) {
+  const text = escapeHtml(value || '');
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .filter(Boolean)
+    .map(line => `<p>${line}</p>`)
+    .join('');
+}
+
+function safeTextToLineBreaks(value) {
+  return escapeHtml(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n/g, '<br>');
+}
+
+function safeBackgroundStyle(coverImageData, coverFallback) {
+  if (typeof coverImageData === 'string') {
+    const trimmed = coverImageData.trim();
+    if (/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(trimmed) || /^https?:\/\/[^"]+$/.test(trimmed)) {
+      return `background-image:url("${escapeAttribute(trimmed)}"); background-position:center; background-size:cover;`;
+    }
+  }
+  if (typeof coverFallback === 'string' && coverFallback.trim()) {
+    return `background:${escapeAttribute(coverFallback.trim())};`;
+  }
+  return '';
+}
+
 function getSupabaseConfig() {
   if (typeof window === 'undefined') return null;
   const appConfig = window.APP_CONFIG || {};
   const url = appConfig.SUPABASE_URL || window.SUPABASE_URL || '';
   const anonKey = appConfig.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || '';
   return url && anonKey ? { url, anonKey } : null;
+}
+
+function getWimpyIDSessionStorageKey() {
+  return 'wimpybooks_wimpyid_session';
+}
+
+function parseWimpyIDSessionFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const email = params.get('email');
+  if (!token || !email) return null;
+  return {
+    id: params.get('id') || `wimpyid:${email}`,
+    email: email.trim().toLowerCase(),
+    name: params.get('name') || email.split('@')[0],
+    token: token.trim(),
+    provider: params.get('provider') || 'wimpyid',
+    avatarUrl: params.get('avatar') || null,
+    badges: ['WimpyID Member'],
+    signedInAt: new Date().toISOString()
+  };
+}
+
+function loadWimpyIDSession() {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(getWimpyIDSessionStorageKey());
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    localStorage.removeItem(getWimpyIDSessionStorageKey());
+    return null;
+  }
+}
+
+function saveWimpyIDSession(session) {
+  if (typeof window === 'undefined' || !session) return null;
+  localStorage.setItem(getWimpyIDSessionStorageKey(), JSON.stringify(session));
+  return session;
+}
+
+function clearWimpyIDSession() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(getWimpyIDSessionStorageKey());
+}
+
+function getSessionToken() {
+  const s = loadWimpyIDSession();
+  return s?.token || '';
+}
+
+function getCurrentUser() {
+  return loadWimpyIDSession();
 }
 
 async function initSupabaseClient() {
@@ -50,7 +146,14 @@ async function persistSupabaseProfile(user, session) {
     console.warn('Could not sync Supabase profile', error);
   }
   if (session?.access_token) {
-    localStorage.setItem('fb_token', session.access_token);
+    const s = {
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Reader',
+      token: session.access_token,
+      provider: user.app_metadata?.provider || 'supabase'
+    };
+    saveWimpyIDSession(s);
   }
 }
 
@@ -64,8 +167,8 @@ async function syncBackendUser(user) {
     });
     const data = await parseApiResponse(response, { ok: false, msg: 'Unable to sync with backend.' });
     if (data.ok && data.user) {
-      localStorage.setItem('fb_token', data.user.token);
       const merged = { ...user, token: data.user.token, badges: data.user.badges || user.badges };
+      saveWimpyIDSession(merged);
       Auth.setCurrentUser(merged);
       return merged;
     }
@@ -73,6 +176,20 @@ async function syncBackendUser(user) {
     console.warn('Backend sync failed', error);
   }
   return null;
+}
+
+async function restoreWimpyIDSession() {
+  if (typeof window === 'undefined') return false;
+  // If WimpyID redirected back with token params, persist them
+  const session = parseWimpyIDSessionFromUrl();
+  if (session) {
+    saveWimpyIDSession(session);
+    // Remove query params to clean up the URL
+    try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
+    return true;
+  }
+  // fallback: check localStorage
+  return Boolean(loadWimpyIDSession());
 }
 
 async function syncSupabaseProgress(bookId, position, timeSpent = 0) {
@@ -107,166 +224,35 @@ const Auth = {
     return JSON.parse(localStorage.getItem('fb_users') || '[]');
   },
   async restoreSupabaseSession() {
-    const client = await initSupabaseClient();
-    if (!client) return false;
-    try {
-      const { data: { session }, error } = await client.auth.getSession();
-      if (error || !session?.user) return false;
-      let user = {
-        id: session.user.id,
-        name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || 'Reader',
-        email: session.user.email,
-        token: session.access_token,
-        badges: ['New Reader'],
-        avatarUrl: session.user.user_metadata?.avatar_url || null,
-        provider: session.user.app_metadata?.provider || 'google'
-      };
-      this.setCurrentUser(user);
-      await persistSupabaseProfile(session.user, session);
-      const synced = await syncBackendUser(user);
-      if (synced) {
-        user = synced;
-      }
-      if (user?.token) {
-        localStorage.setItem('fb_token', user.token);
-      }
-      this.setCurrentUser(user);
-      return true;
-    } catch (error) {
-      console.warn('Supabase session restore failed', error);
-      return false;
-    }
+    return restoreWimpyIDSession();
   },
   saveUsers(users) {
     localStorage.setItem('fb_users', JSON.stringify(users));
   },
   getCurrentUser() {
-    try {
-      return JSON.parse(localStorage.getItem('fb_current') || 'null');
-    } catch (error) {
-      return null;
-    }
+    return getCurrentUser();
   },
   setCurrentUser(user) {
     if (user) {
       localStorage.setItem('fb_current', JSON.stringify(user));
-      if (user.token) {
-        localStorage.setItem('fb_token', user.token);
-      }
+      saveWimpyIDSession(user);
     } else {
       localStorage.removeItem('fb_current');
-      localStorage.removeItem('fb_token');
+      clearWimpyIDSession();
     }
   },
   getSessionToken() {
-    const currentUser = this.getCurrentUser();
-    return currentUser?.token || localStorage.getItem('fb_token') || '';
+    return getSessionToken();
   },
   async logout() {
-    try {
-      const client = await initSupabaseClient();
-      if (client?.auth?.signOut) await client.auth.signOut();
-    } catch (error) {
-      console.warn('Supabase sign-out failed', error);
-    }
-    localStorage.removeItem('fb_current');
-    localStorage.removeItem('fb_token');
-    window.location.href = 'index.html';
+    clearWimpyIDSession();
+    window.location.href = 'auth.html';
   },
-  async signup(name, email, password) {
-    if (!name || !email || !password) return { ok: false, msg: 'All fields are required.' };
-    if (password.length < 6) return { ok: false, msg: 'Password must be at least 6 characters.' };
-    if (!/^\S+@\S+\.\S+$/.test(email)) return { ok: false, msg: 'Invalid email format.' };
-
-    const client = await initSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } }
-        });
-        if (!error && data.user) {
-          let profile = {
-            id: data.user.id,
-            name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || name,
-            email: data.user.email,
-            token: data.session?.access_token || '',
-            badges: ['New Reader'],
-            avatarUrl: data.user.user_metadata?.avatar_url || null,
-            provider: data.user.app_metadata?.provider || 'email'
-          };
-          this.setCurrentUser(profile);
-          await persistSupabaseProfile(data.user, data.session);
-          if (data.session?.access_token) localStorage.setItem('fb_token', data.session.access_token);
-          const synced = await syncBackendUser(profile);
-          if (synced) {
-            profile = synced;
-            this.setCurrentUser(profile);
-          }
-          return { ok: true, msg: data.session ? 'Account created and signed in.' : 'Account created. Confirm your email to sign in.', user: profile };
-        }
-        if (error) return { ok: false, msg: error.message || 'Unable to create Supabase account.' };
-      } catch (error) {
-        return { ok: false, msg: error.message || 'Unable to create Supabase account.' };
-      }
-    }
-
-    const response = await fetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
-    });
-    const data = await parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
-
-    if (data.ok) {
-      localStorage.setItem('fb_token', data.user.token);
-      this.setCurrentUser({ ...data.user, badges: data.user.badges || ['New Reader'] });
-    }
-    return data;
+  async signup() {
+    return { ok: false, msg: 'WimpyID handles account creation. Sign in via WimpyID.' };
   },
-  async login(email, password) {
-    const client = await initSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (!error && data.user) {
-          let profile = {
-            id: data.user.id,
-            name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email || 'Reader',
-            email: data.user.email,
-            token: data.session?.access_token || '',
-            badges: ['New Reader'],
-            avatarUrl: data.user.user_metadata?.avatar_url || null,
-            provider: data.user.app_metadata?.provider || 'google'
-          };
-          this.setCurrentUser(profile);
-          await persistSupabaseProfile(data.user, data.session);
-          if (data.session?.access_token) localStorage.setItem('fb_token', data.session.access_token);
-          const synced = await syncBackendUser(profile);
-          if (synced) {
-            profile = synced;
-            this.setCurrentUser(profile);
-          }
-          return { ok: true, msg: 'Signed in successfully.', user: profile };
-        }
-        if (error) return { ok: false, msg: error.message || 'Unable to sign in.' };
-      } catch (error) {
-        return { ok: false, msg: error.message || 'Unable to sign in.' };
-      }
-    }
-
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
-    if (data.ok) {
-      localStorage.setItem('fb_token', data.user.token);
-      this.setCurrentUser({ ...data.user, badges: data.user.badges || ['New Reader'] });
-    }
-    return data;
+  async login() {
+    return { ok: false, msg: 'WimpyID handles login. Sign in via WimpyID.' };
   },
   requireLogin(redirect = 'auth.html') {
     if (!this.getCurrentUser()) {
@@ -274,6 +260,18 @@ const Auth = {
       return false;
     }
     return true;
+  }
+};
+
+window.WimpyIDSession = {
+  getCurrentUser,
+  getToken: getSessionToken,
+  async restoreSession() {
+    return restoreWimpyIDSession();
+  },
+  async logout() {
+    clearWimpyIDSession();
+    window.location.href = 'auth.html';
   }
 };
 
@@ -352,7 +350,8 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       },
       body: JSON.stringify(book)
     });
@@ -365,7 +364,8 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       },
       body: JSON.stringify({ text })
     });
@@ -376,7 +376,8 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       },
       body: JSON.stringify({ score })
     });
@@ -387,7 +388,8 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       }
     });
     const data = await parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -398,22 +400,12 @@ const Books = {
     }
     return data;
   },
-  async createCheckout(id) {
-    const response = await fetch(`${API_BASE}/checkout/create-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
-      },
-      body: JSON.stringify({ bookId: id })
-    });
-    return parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
-  },
   async delete(id) {
     const response = await fetch(`${API_BASE}/books/${id}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       }
     });
     return parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -422,8 +414,9 @@ const Books = {
     try {
       const response = await fetch(`${API_BASE}/books/${id}/access`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
-        }
+            Authorization: `Bearer ${getSessionToken() || ''}`,
+            'x-user-email': getCurrentUser()?.email || ''
+          }
       });
       const data = await parseApiResponse(response, null);
       if (!data) {
@@ -437,7 +430,8 @@ const Books = {
   async getProgress(id) {
     const response = await fetch(`${API_BASE}/books/${id}/progress`, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       }
     });
     return parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -447,7 +441,8 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
+        Authorization: `Bearer ${getSessionToken() || ''}`,
+        'x-user-email': getCurrentUser()?.email || ''
       },
       body: JSON.stringify({ position })
     });
@@ -466,8 +461,9 @@ const Books = {
     try {
       const response = await fetch(`${API_BASE}/books/${id}/file`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('fb_token') || ''}`
-        }
+            Authorization: `Bearer ${getSessionToken() || ''}`,
+            'x-user-email': getCurrentUser()?.email || ''
+          }
       });
       const contentType = response.headers.get('content-type') || 'application/octet-stream';
       if (!response.ok) {
@@ -518,7 +514,7 @@ function updateNav() {
   authLink.classList.toggle('is-user', Boolean(user));
 }
 
-function applyTheme(theme = 'light') {
+function applyTheme(theme = 'dark') {
   const resolvedTheme = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', resolvedTheme);
   document.body.classList.toggle('light-mode', resolvedTheme === 'light');
@@ -536,7 +532,7 @@ function toggleDarkMode() {
 function updateThemeToggle() {
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
-  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'light';
+  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'dark';
   applyTheme(savedTheme);
   btn.onclick = toggleDarkMode;
 }
@@ -547,7 +543,7 @@ window.showToast = showToast;
 document.addEventListener('DOMContentLoaded', async () => {
   updateNav();
   updateThemeToggle();
-  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'light';
+  const savedTheme = localStorage.getItem('wimpybooks-theme') || 'dark';
   applyTheme(savedTheme);
   await Auth.restoreSupabaseSession();
   updateNav();

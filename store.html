@@ -10,6 +10,13 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#d4af37">
 <title>Store — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -100,25 +107,26 @@
       }
 
       grid.innerHTML = books.map(book => {
-        const readLink = book.isFree ? `reader.html?id=${book.id}` : `display.html?id=${book.id}`;
+        const readLink = book.isFree ? `reader.html?id=${escapeAttribute(String(book.id))}` : `display.html?id=${escapeAttribute(String(book.id))}`;
         const readText = book.isFree ? 'Read online' : 'Unlock access';
-        const coverStyle = book.coverImageData ? `background:url(${book.coverImageData}) center/cover no-repeat` : `background:${book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};`;
+        const coverStyle = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
         const priceLabel = Number(book.price || 0) > 0 ? `₦${Number(book.price || 0).toLocaleString()}` : 'Free';
+        const previewText = book.preview || book.description || 'A beautiful preview awaits.';
         return `
-          <article class="book-card" data-genre="${(book.genre || 'other').toLowerCase()}">
+          <article class="book-card" data-genre="${escapeHtml((book.genre || 'other').toLowerCase())}">
             <div class="book-cover" style="${coverStyle}">
               <span class="cover-icon">📖</span>
-              <div class="preview-hover">${book.preview || book.description || 'A beautiful preview awaits.'}</div>
+              <div class="preview-hover">${escapeHtml(previewText)}</div>
             </div>
-            <h3>${book.title}</h3>
-            <p class="author">${book.author}</p>
-            <span class="tag">${book.genre || 'other'}</span>
-            <p class="preview-snippet">${book.preview || book.description}</p>
+            <h3>${escapeHtml(book.title || 'Untitled')}</h3>
+            <p class="author">${escapeHtml(book.author || 'Unknown author')}</p>
+            <span class="tag">${escapeHtml(book.genre || 'other')}</span>
+            <p class="preview-snippet">${escapeHtml(previewText)}</p>
             <div class="card-actions">
-              <a href="preview.html?id=${book.id}" class="btn-small">Preview</a>
+              <a href="preview.html?id=${escapeAttribute(String(book.id))}" class="btn-small">Preview</a>
               <a href="${readLink}" class="btn-small download">${readText}</a>
             </div>
-            <div class="card-meta"><span>${priceLabel}</span>${activeView === 'trending' ? `<span>${book.traffic || 0} traffic</span><span>${book.reads || 0} reads</span>` : ''}</div>
+            <div class="card-meta"><span>${priceLabel}</span>${activeView === 'trending' ? `<span>${Number(book.traffic || 0)} traffic</span><span>${Number(book.reads || 0)} reads</span>` : ''}</div>
           </article>
         `;
       }).join('');
@@ -142,7 +150,7 @@
       const emptyState = document.querySelector('.empty-state');
       if (!visibleCount && !emptyState) {
         const grid = document.getElementById('storeGrid');
-        grid.innerHTML += `<div class="empty-state"><div class="empty-icon">🔎</div><h3>No results for “${search}”</h3><p>Try another title, author, or genre.</p></div>`;
+        grid.innerHTML += `<div class="empty-state"><div class="empty-icon">🔎</div><h3>No results for “${escapeHtml(search)}”</h3><p>Try another title, author, or genre.</p></div>`;
       } else if (emptyState && search) {
         emptyState.remove();
       }

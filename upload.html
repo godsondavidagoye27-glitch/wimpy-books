@@ -10,6 +10,13 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#d4af37">
 <title>Upload — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -122,7 +129,7 @@
 
   <script src="auth.js"></script>
   <script>
-    if (!Auth.getCurrentUser()) {
+    if (!window.WimpyIDSession?.getCurrentUser?.()) {
       document.querySelector('.form-page').innerHTML = '<div class="empty-state"><h2>🔐 Please log in to publish books</h2><a href="auth.html" class="btn-primary">Go to login</a></div>';
     }
 
@@ -204,7 +211,7 @@
         price: Number(document.getElementById('price').value || 0),
         currency: 'NGN',
         promoted: document.getElementById('promoted').checked,
-        uploader: Auth.getCurrentUser().email,
+        uploader: window.WimpyIDSession?.getCurrentUser?.()?.email || '',
         fileName: bookFile.name,
         fileType: bookFile.type,
         fileData: await readAsDataURL(bookFile)
@@ -219,13 +226,13 @@
       status.style.display = 'block';
       if (result && result.ok === true && result.id) {
         status.className = 'status-box success';
-        status.innerHTML = `✅ <strong>Success!</strong> “${result.title}” is waiting for review. <a href="display.html?id=${result.id}" style="color:inherit;">View it →</a>`;
+        status.innerHTML = `✅ <strong>Success!</strong> “${escapeHtml(result.title || 'Book')}” is waiting for review. <a href="display.html?id=${escapeAttribute(String(result.id))}" style="color:inherit;">View it →</a>`;
         showToast('📚 Book submitted! It will appear after review.', 'success');
         setTimeout(() => window.location.href = 'index.html', 1800);
       } else {
         const msg = result?.msg || 'Could not publish this book. Please try again.';
         status.className = 'status-box error';
-        status.innerHTML = `⚠️ ${msg}`;
+        status.innerHTML = `⚠️ ${escapeHtml(msg)}`;
         showToast(msg, 'error');
       }
       document.getElementById('uploadForm').reset();

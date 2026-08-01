@@ -10,6 +10,13 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#d4af37">
 <title>Book Details — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -100,16 +107,17 @@
         return;
       }
       const book = premiumBooks[spotlightIndex % premiumBooks.length];
+      const coverStyle = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
       mount.innerHTML = `
         <div class="spotlight-body">
-          <div class="spotlight-cover" style="background:${book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};">📖</div>
+          <div class="spotlight-cover" style="${coverStyle}">📖</div>
           <div class="spotlight-info">
             <span class="tag">Premium uploader spotlight</span>
-            <h3>${book.title}</h3>
-            <p>${book.preview || book.description || 'A refined read from a premium uploader.'}</p>
+            <h3>${escapeHtml(book.title || 'Untitled')}</h3>
+            <p>${escapeHtml(book.preview || book.description || 'A refined read from a premium uploader.')}</p>
             <div class="card-actions">
-              <a href="preview.html?id=${book.id}" class="btn-small">View</a>
-              <a href="reader.html?id=${book.id}" class="btn-small download">Read</a>
+              <a href="preview.html?id=${escapeAttribute(String(book.id))}" class="btn-small">View</a>
+              <a href="reader.html?id=${escapeAttribute(String(book.id))}" class="btn-small download">Read</a>
             </div>
           </div>
         </div>
@@ -128,17 +136,13 @@
       document.getElementById('detailAuthor').textContent = `by ${book.author}`;
       document.getElementById('detailTag').textContent = book.genre || 'Featured';
       document.getElementById('detailDescription').textContent = book.preview || book.description;
-      if (book.coverImageData) {
-        document.getElementById('detailCover').style.background = `url(${book.coverImageData}) center/cover no-repeat`;
-      } else {
-        document.getElementById('detailCover').style.background = book.cover || 'linear-gradient(135deg,#667eea,#764ba2)';
-      }
+      document.getElementById('detailCover').style.cssText = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
       document.getElementById('detailAccess').textContent = book.isFree ? 'Free online' : 'Paid access';
       document.getElementById('detailPrice').textContent = book.isFree ? 'Free' : `$${Number(book.price || 0).toFixed(2)}`;
       document.getElementById('detailReviews').textContent = `${book.ratings || 0} ratings`;
       document.getElementById('detailPromoted').textContent = book.promoted ? 'Yes' : 'No';
       document.getElementById('detailRating').innerHTML = `⭐ ${Number(book.rating || 0).toFixed(1)} · ${book.ratings || 0} reviews`;
-      const user = Auth.getCurrentUser();
+      const user = window.WimpyIDSession?.getCurrentUser?.();
       const ownerActions = document.getElementById('ownerActions');
       if (user && user.email === book.uploader) {
         ownerActions.innerHTML = `<button class="btn-outline" id="deleteBook">Delete title</button>`;
@@ -166,11 +170,15 @@
           return;
         }
         if (!book.isFree && !purchased) {
-          const checkout = await Books.createCheckout(book.id);
-          if (checkout.ok && checkout.url) {
-            window.location.href = checkout.url;
+          const result = await Books.purchase(book.id);
+          if (result.ok) {
+            showNotice(result.msg || 'Access unlocked.', 'success');
+            window.location.reload();
+          } else if (result.topUpUrl) {
+            showNotice(result.msg || 'Insufficient balance. Please top up and try again.', 'error');
+            window.open(result.topUpUrl, '_blank');
           } else {
-            showNotice(checkout.msg || 'Checkout could not be started.', 'error');
+            showNotice(result.msg || 'Purchase could not be completed.', 'error');
           }
           return;
         }
@@ -185,11 +193,15 @@
           return;
         }
         if (!book.isFree && !purchased) {
-          const checkout = await Books.createCheckout(book.id);
-          if (checkout.ok && checkout.url) {
-            window.location.href = checkout.url;
+          const result = await Books.purchase(book.id);
+          if (result.ok) {
+            showNotice(result.msg || 'Access unlocked.', 'success');
+            window.location.reload();
+          } else if (result.topUpUrl) {
+            showNotice(result.msg || 'Insufficient balance. Please top up and try again.', 'error');
+            window.open(result.topUpUrl, '_blank');
           } else {
-            showNotice(checkout.msg || 'Checkout could not be started.', 'error');
+            showNotice(result.msg || 'Purchase could not be completed.', 'error');
           }
           return;
         }
@@ -234,22 +246,25 @@
     function renderComments(book) {
       const mount = document.getElementById('commentList');
       mount.innerHTML = (book.comments || []).map(comment => `
-        <div class="comment-item"><strong>${comment.user}</strong><p>${comment.text}</p></div>
+        <div class="comment-item"><strong>${escapeHtml(comment.user || 'Reader')}</strong><p>${escapeHtml(comment.text || '')}</p></div>
       `).join('');
     }
 
     function renderRelated(books) {
       const mount = document.getElementById('relatedBooks');
       const related = getPremiumBooks(books).filter(entry => entry.id != bookId).slice(0, 3);
-      mount.innerHTML = related.map(book => `
-        <article class="book-card">
-          <div class="book-cover" style="background:${book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : book.cover || 'linear-gradient(135deg,#667eea,#764ba2)'};">📖</div>
-          <h3>${book.title}</h3>
-          <p class="author">${book.author}</p>
-          <span class="tag">${book.genre || 'featured'}</span>
-          <div class="card-actions"><a href="preview.html?id=${book.id}" class="btn-small">Open</a></div>
-        </article>
-      `).join('');
+      mount.innerHTML = related.map(book => {
+        const coverStyle = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
+        return `
+          <article class="book-card">
+            <div class="book-cover" style="${coverStyle}">📖</div>
+            <h3>${escapeHtml(book.title || 'Untitled')}</h3>
+            <p class="author">${escapeHtml(book.author || 'Unknown author')}</p>
+            <span class="tag">${escapeHtml(book.genre || 'featured')}</span>
+            <div class="card-actions"><a href="preview.html?id=${escapeAttribute(String(book.id))}" class="btn-small">Open</a></div>
+          </article>
+        `;
+      }).join('');
     }
 
     document.addEventListener('DOMContentLoaded', loadBook);

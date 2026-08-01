@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Reading — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +22,7 @@
       <button onclick="jumpToNextChapter()" title="Next chapter">▶</button>
       <button onclick="changeFontSize(-2)" title="Smaller text">A-</button>
       <button onclick="changeFontSize(2)" title="Larger text">A+</button>
-      <button onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+      <button class="theme-toggle" id="themeToggle" type="button" title="Toggle theme">🌙</button>
     </div>
   </div>
 
@@ -78,7 +85,7 @@
       try {
         const fileResult = await Books.getFileContent(book.id);
         if (!fileResult?.ok || !fileResult.body) {
-          return `<div class="book-text">${(book.preview || book.description || 'No full content available.').replace(/\n/g, '<br>')}</div>`;
+          return `<div class="book-text">${safeTextToLineBreaks(book.preview || book.description || 'No full content available.')}</div>`;
         }
 
         const type = (book.fileType || '').toLowerCase();
@@ -100,7 +107,7 @@
         if (type.startsWith('text/') || name.endsWith('.txt') || contentType.startsWith('text/')) {
           const text = decodeTextBody(fileResult.body) || book.preview || book.description || 'No full content available.';
           const chapters = splitIntoChapters(text);
-          const chapterMarkup = chapters.map((chapter, index) => `<section class="chapter-block" data-chapter="${index}"><h3>Chapter ${index + 1}</h3><div class="book-text">${chapter.replace(/\n/g, '<br>')}</div></section>`).join('');
+          const chapterMarkup = chapters.map((chapter, index) => `<section class="chapter-block" data-chapter="${escapeAttribute(String(index))}"><h3>Chapter ${index + 1}</h3><div class="book-text">${safeTextToLineBreaks(chapter)}</div></section>`).join('');
           return `<div class="chapter-list">${chapterMarkup}</div>`;
         }
 
@@ -109,7 +116,7 @@
           return `
             <div class="empty-state">
               <p>This EPUB file is ready for download and reading in a supported app.</p>
-              <a class="btn-primary" href="${blobUrl}" download="${book.fileName || 'book.epub'}">Download EPUB</a>
+              <a class="btn-primary" href="${escapeAttribute(blobUrl)}" download="${escapeAttribute(book.fileName || 'book.epub')}">Download EPUB</a>
             </div>
           `;
         }
@@ -125,10 +132,11 @@
       const content = document.getElementById('readerContent');
       if (!book) {
         content.innerHTML = '<h2 class="empty-state">❌ Book not found.</h2>';
+        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
         return;
       }
 
-      const user = Auth.getCurrentUser();
+      const user = window.WimpyIDSession?.getCurrentUser?.();
       const bookIsFree = Boolean(book.isFree);
       let access = { ok: true, canRead: bookIsFree, owned: false };
       if (!bookIsFree) {
@@ -139,12 +147,14 @@
       const accessError = !access.ok && access.msg && !access.msg.toLowerCase().includes('login required');
 
       if (!bookIsFree && accessError && !canRead) {
-        content.innerHTML = `\n          <article class="book-article">\n            <h1>${book.title}</h1>\n            <p class="book-author">by ${book.author}</p>\n            <hr>\n            <p class="book-text">${book.preview || book.description}</p>\n            <div class="empty-state">\n              <h2>⚠️ Access check failed</h2>\n              <p>${access.msg || 'Unable to verify access right now. You can still view the preview.'}</p>\n              <button class="btn-primary" onclick="unlockBook(${book.id})">Unlock access</button>\n            </div>\n          </article>\n        `;
+        content.innerHTML = `\n          <article class="book-article">\n            <h1>${escapeHtml(book.title || 'Untitled')}</h1>\n            <p class="book-author">by ${escapeHtml(book.author || 'Unknown author')}</p>\n            <hr>\n            <p class="book-text">${safeTextToLineBreaks(book.preview || book.description || '')}</p>\n            <div class="empty-state">\n              <h2>⚠️ Access check failed</h2>\n              <p>${escapeHtml(access.msg || 'Unable to verify access right now. You can still view the preview.')}</p>\n              <button class="btn-primary" id="unlockButtonAlt">Unlock access</button>\n            </div>\n          </article>\n        `;
+        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
         return;
       }
 
       if (!canRead) {
-        content.innerHTML = `\n          <article class="book-article">\n            <h1>${book.title}</h1>\n            <p class="book-author">by ${book.author}</p>\n            <hr>\n            <p class="book-text">${book.preview || book.description}</p>\n            <div class="empty-state">\n              <p>This book is locked for full reading access. Unlock it to continue reading.</p>\n              <button class="btn-primary" onclick="unlockBook(${book.id})">Unlock access</button>\n            </div>\n          </article>\n        `;
+        content.innerHTML = `\n          <article class="book-article">\n            <h1>${escapeHtml(book.title || 'Untitled')}</h1>\n            <p class="book-author">by ${escapeHtml(book.author || 'Unknown author')}</p>\n            <hr>\n            <p class="book-text">${safeTextToLineBreaks(book.preview || book.description || '')}</p>\n            <div class="empty-state">\n              <p>This book is locked for full reading access. Unlock it to continue reading.</p>\n              <button class="btn-primary" id="unlockButtonAlt">Unlock access</button>\n            </div>\n          </article>\n        `;
+        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
         return;
       }
 
@@ -152,9 +162,9 @@
       const viewer = document.getElementById('bookViewer');
       const cover = document.getElementById('bookCover');
       const coverImageLarge = document.getElementById('coverImageLarge');
-      coverImageLarge.style.background = book.coverImageData ? `url(${book.coverImageData}) center/cover no-repeat` : (book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
-      document.getElementById('readerTitle').textContent = book.title;
-      document.title = `Reading: ${book.title} — Wimpy Books`;
+      coverImageLarge.style.cssText = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
+      document.getElementById('readerTitle').textContent = book.title || 'Reading…';
+      document.title = `Reading: ${book.title || 'Untitled'} — Wimpy Books`;
 
       const openBtn = document.getElementById('openBookBtn');
       openBtn.onclick = async () => {
@@ -164,7 +174,7 @@
       const chapterBlocks = Array.from(document.querySelectorAll('.chapter-block'));
       const chapterNav = document.getElementById('chapterNav');
       if (chapterBlocks.length > 1) {
-        chapterNav.innerHTML = chapterBlocks.map((block, index) => `<button class="chapter-btn" data-index="${index}">Chapter ${index + 1}</button>`).join('');
+        chapterNav.innerHTML = chapterBlocks.map((block, index) => `<button class="chapter-btn" data-index="${escapeAttribute(String(index))}">Chapter ${index + 1}</button>`).join('');
         chapterNav.querySelectorAll('.chapter-btn').forEach(button => {
           button.addEventListener('click', () => {
             const index = Number(button.dataset.index);
@@ -189,7 +199,7 @@
         const badgeList = JSON.parse(localStorage.getItem('fb_badges') || '[]');
         if (!badgeList.includes('Curious Reader')) badgeList.push('Curious Reader');
         localStorage.setItem('fb_badges', JSON.stringify(badgeList));
-        const current = Auth.getCurrentUser();
+        const current = window.WimpyIDSession?.getCurrentUser?.();
         if (current) {
           current.badges = badgeList;
           Auth.setCurrentUser(current);
@@ -198,9 +208,10 @@
     }
 
     async function unlockBook(id) {
-      if (!Auth.getCurrentUser()) {
+      if (!window.WimpyIDSession?.getCurrentUser?.()) {
         const confirmed = await confirmAction('Please log in to unlock this title.');
         if (confirmed) window.location.href = 'auth.html';
+        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
         return;
       }
       const result = await Books.purchase(id);
@@ -218,18 +229,6 @@
       fontSize = Math.max(12, Math.min(28, fontSize + delta));
       document.getElementById('readerContent').style.fontSize = fontSize + 'px';
       localStorage.setItem('fb_fontsize', fontSize);
-    }
-
-    let darkMode = localStorage.getItem('fb_reader_theme') !== 'light';
-    applyTheme();
-    function toggleTheme() {
-      darkMode = !darkMode;
-      localStorage.setItem('fb_reader_theme', darkMode ? 'dark' : 'light');
-      applyTheme();
-    }
-    function applyTheme() {
-      document.body.classList.toggle('reader-light', !darkMode);
-      document.getElementById('themeBtn').textContent = darkMode ? '🌙' : '☀️';
     }
 
     // --- Paged reader implementation ---
@@ -278,7 +277,10 @@
         const page = document.createElement('div');
         page.className = 'book-page';
         page.dataset.index = i;
-        page.innerHTML = `<div class="page-inner">${content.replace(/\n/g, '<br>')}</div>`;
+        const inner = document.createElement('div');
+        inner.className = 'page-inner';
+        inner.innerHTML = safeTextToLineBreaks(content);
+        page.appendChild(inner);
         pagesMount.appendChild(page);
       });
       document.getElementById('readerControls').style.display = 'flex';
@@ -399,7 +401,7 @@
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(async () => {
           localStorage.setItem(`fb_reader_progress_${bookId}`, String(window.scrollY));
-          if (Auth.getCurrentUser()) {
+          if (window.WimpyIDSession?.getCurrentUser?.()) {
             await Books.saveProgress(bookId, window.scrollY);
           }
         }, 200);

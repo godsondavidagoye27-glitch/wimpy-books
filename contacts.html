@@ -10,6 +10,13 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#d4af37">
 <title>Contact Us — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +29,7 @@
     <a href="store.html">📚 Store</a>
     <a href="upload.html">⬆️ Upload</a>
     <a href="contacts.html" class="active">📞 Contacts</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
   </nav>
 
   <section class="contact-wrapper">

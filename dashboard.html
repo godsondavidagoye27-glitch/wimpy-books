@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Dashboard — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -52,22 +59,19 @@
 
     async function loadDashboard() {
       await showDashboardLoading();
-      await Auth.restoreSupabaseSession?.();
-      let currentUser = Auth.getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
         window.location.href = 'auth.html';
         return;
       }
-      currentUser = (await syncBackendUser(currentUser)) || currentUser;
       const apiBase = getApiBase();
-      const token = Auth.getSessionToken();
+      const token = currentUser.token || '';
       let response = await fetch(`${apiBase}/dashboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.status === 401 || response.status === 403) {
-        await showDashboardLoading('Syncing your login token and retrying dashboard access...');
-        currentUser = (await syncBackendUser(currentUser)) || currentUser;
-        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${Auth.getSessionToken()}` } });
+        await showDashboardLoading('Retrying dashboard access...');
+        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
       }
       const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
       const statsMount = document.getElementById('dashboardStats');
@@ -81,7 +85,7 @@
         mount.innerHTML = '';
         return;
       }
-      const currentUserName = (Auth.getCurrentUser()?.name || 'Reader').split(' ')[0];
+      const currentUserName = (currentUser?.name || 'Reader').split(' ')[0];
       const badgesText = data.stats.badges?.length ? data.stats.badges.join(' • ') : 'No badges yet';
       statsMount.innerHTML = `
         <div class="info-card dashboard-summary">
@@ -94,13 +98,13 @@
             <a href="upload.html" class="btn-primary">Publish a book</a>
           </div>
           <div class="stats-grid">
-            <div class="stat-card"><span class="stat-icon">📚</span><strong>${data.stats.uploadedCount}</strong><span>books uploaded</span></div>
-            <div class="stat-card"><span class="stat-icon">📖</span><strong>${data.stats.booksRead}</strong><span>books read</span></div>
-            <div class="stat-card"><span class="stat-icon">⏱️</span><strong>${Math.round(data.stats.timeSpent)}</strong><span>minutes read</span></div>
-            <div class="stat-card"><span class="stat-icon">💰</span><strong>$${data.stats.earned.toFixed(2)}</strong><span>earned</span></div>
+            <div class="stat-card"><span class="stat-icon">📚</span><strong>${Number(data.stats.uploadedCount)}</strong><span>books uploaded</span></div>
+            <div class="stat-card"><span class="stat-icon">📖</span><strong>${Number(data.stats.booksRead)}</strong><span>books read</span></div>
+            <div class="stat-card"><span class="stat-icon">⏱️</span><strong>${Math.round(Number(data.stats.timeSpent) || 0)}</strong><span>minutes read</span></div>
+            <div class="stat-card"><span class="stat-icon">💰</span><strong>$${Number(data.stats.earned || 0).toFixed(2)}</strong><span>earned</span></div>
           </div>
           <div class="badges-row">
-            <span class="badge-pill">🏅 ${badgesText}</span>
+            <span class="badge-pill">🏅 ${escapeHtml(badgesText)}</span>
           </div>
         </div>
       `;
@@ -120,13 +124,13 @@
               ${data.recentReads.map(read => `
                 <article class="dashboard-item">
                   <div>
-                    <h4>${read.title}</h4>
-                    <p>Last read ${new Date(read.lastReadAt).toLocaleString()}</p>
-                    <span class="tag">Position: ${read.position}</span>
-                    <span class="tag">Time: ${Math.round(read.timeSpent)} sec</span>
+                    <h4>${escapeHtml(read.title || 'Untitled')}</h4>
+                    <p>Last read ${escapeHtml(new Date(read.lastReadAt).toLocaleString())}</p>
+                    <span class="tag">Position: ${Number(read.position)}</span>
+                    <span class="tag">Time: ${Math.round(Number(read.timeSpent) || 0)} sec</span>
                   </div>
                   <div class="card-actions">
-                    <a href="reader.html?id=${read.bookId}" class="btn-small">Resume</a>
+                    <a href="reader.html?id=${escapeAttribute(String(read.bookId))}" class="btn-small">Resume</a>
                   </div>
                 </article>
               `).join('')}
