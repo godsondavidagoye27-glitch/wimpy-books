@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: wimpy-books-backend
+    env: node
+    plan: free
+    branch: main
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    envVars:
+      - key: SUPABASE_URL
+        value: ""
+      - key: SUPABASE_ANON_KEY
+        value: ""
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: ""
