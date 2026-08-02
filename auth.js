@@ -301,9 +301,6 @@ function processBootstrapSession(detail) {
     if (normalized) {
       Auth.setCurrentUser(normalized);
     }
-  } else {
-    localStorage.removeItem('fb_current');
-    clearWimpyIDSession();
   }
   updateNav();
 }
