@@ -87,6 +87,33 @@
 
   async function resolveUserData(session) {
     const state = createEmptyUserState();
+
+    // If Supabase session is missing, try to fall back to WimpyID session
+    // stored in localStorage under `wimpybooks_wimpyid_session` so pages
+    // that rely on WimpyID tokens still see a signed-in user.
+    if (!session) {
+      try {
+        const raw = localStorage.getItem('wimpybooks_wimpyid_session');
+        if (raw) {
+          const w = JSON.parse(raw);
+          // Normalize to a Supabase-like session shape expected by pages
+          session = {
+            user: {
+              id: w.id || (w.email ? `wimpyid:${w.email}` : null),
+              email: w.email || '',
+              user_metadata: { full_name: w.name || '' },
+              app_metadata: { provider: w.provider || 'wimpyid' },
+              // convenience token property used in some pages
+              token: w.token || ''
+            },
+            access_token: w.token || ''
+          };
+        }
+      } catch (err) {
+        // ignore parse errors and continue with empty state
+      }
+    }
+
     if (!session) return state;
     state.session = session;
     state.isSignedIn = true;

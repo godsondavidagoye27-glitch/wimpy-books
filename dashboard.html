@@ -71,11 +71,11 @@
       const apiBase = getApiBase();
       const token = currentUser.token || '';
       let response = await fetch(`${apiBase}/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}`, 'x-user-email': currentUser?.email || '' }
       });
       if (response.status === 401 || response.status === 403) {
         await showDashboardLoading('Retrying dashboard access...');
-        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
+        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}`, 'x-user-email': currentUser?.email || '' } });
       }
       const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
       const statsMount = document.getElementById('dashboardStats');
