@@ -49,6 +49,25 @@
     }
   }
 
+  async function setSessionFromCodeExchange(client) {
+    try {
+      const qs = window.location.search || '';
+      if (!qs.includes('code=')) return false;
+      // Supabase JS v2 supports exchanging the full query string for PKCE/code flows
+      const result = await client.auth.exchangeCodeForSession(qs);
+      if (result.error) {
+        console.warn('WimpyBooks session bootstrap: exchangeCodeForSession failed', result.error);
+        return false;
+      }
+      // clear the URL params
+      history.replaceState(null, '', window.location.pathname + window.location.hash);
+      return true;
+    } catch (err) {
+      console.warn('WimpyBooks session bootstrap: code exchange error', err);
+      return false;
+    }
+  }
+
   function markSessionReady(detail) {
     window.__WimpyBootstrapSessionDetail = detail;
     if (typeof window.__WimpyBootstrapSessionResolve === 'function') {
@@ -62,6 +81,7 @@
   });
 
   async function bootstrap() {
+    console.log('WimpyBootstrap: current URL ->', window.location.href);
     const client = await getClient();
     const sessionDetail = { session: null };
     if (!client) {
@@ -70,10 +90,16 @@
       return;
     }
 
-    await setSessionFromHash(client);
+    // Try hash-based token first (OAuth implicit flow / redirect)
+    let restored = await setSessionFromHash(client);
+    // If no access_token in hash, try PKCE/code exchange flow (?code=...)
+    if (!restored) {
+      restored = await setSessionFromCodeExchange(client);
+    }
 
     try {
       const { data, error } = await client.auth.getSession();
+      console.log('WimpyBootstrap: auth.getSession ->', { data, error });
       if (error) {
         console.warn('WimpyBooks session bootstrap: auth.getSession returned error', error);
       }
