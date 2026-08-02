@@ -780,12 +780,7 @@ body {
   color: var(--muted);
 }
 
-.dashboard-shell-grid {
-  display: grid;
-  gap: 24px;
-}
-
-.dashboard-item,
+dashboard-item,
 .feature-card,
 .premium-spotlight-card,
 .book-detail,
@@ -1096,12 +1091,6 @@ body {
 
   .search-bar {
     gap: 14px;
-  }
-
-  .store-grid,
-  .book-grid,
-  .quotes-grid {
-    grid-template-columns: 1fr;
   }
 
   .dashboard-shell-grid {

@@ -508,7 +508,7 @@ function updateNav() {
     };
   } else {
     authLink.href = 'auth.html';
-    authLink.innerHTML = '🔐 Login';
+    authLink.innerHTML = '🔐 Account';
     authLink.onclick = null;
   }
   authLink.classList.toggle('is-user', Boolean(user));
