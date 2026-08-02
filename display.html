@@ -88,6 +88,11 @@
     <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="wimpy-session-bootstrap.js"></script>
+  <script src="wimpy-user-data.js"></script>
   <script src="auth.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -126,6 +131,7 @@
     }
 
     async function loadBook() {
+      await window.waitForWimpyUserData?.();
       const book = await Books.getById(bookId);
       if (!book) {
         document.getElementById('bookDetail').innerHTML = '<div class="empty-state">Book not found</div>';
@@ -142,7 +148,8 @@
       document.getElementById('detailReviews').textContent = `${book.ratings || 0} ratings`;
       document.getElementById('detailPromoted').textContent = book.promoted ? 'Yes' : 'No';
       document.getElementById('detailRating').innerHTML = `⭐ ${Number(book.rating || 0).toFixed(1)} · ${book.ratings || 0} reviews`;
-      const user = window.WimpyIDSession?.getCurrentUser?.();
+      const userData = window.WimpyUser || {};
+      const user = userData.isSignedIn ? userData.session?.user : null;
       const ownerActions = document.getElementById('ownerActions');
       if (user && user.email === book.uploader) {
         ownerActions.innerHTML = `<button class="btn-outline" id="deleteBook">Delete title</button>`;
@@ -158,20 +165,24 @@
         };
       }
 
-      const purchased = user ? JSON.parse(localStorage.getItem('fb_purchases') || '[]').includes(Number(book.id)) : false;
+      const purchased = Boolean(userData.ownedBooks?.includes(String(book.id)));
+      const canRead = book.isFree || purchased || Boolean(userData.hasActiveSubscription);
       const primaryAction = document.getElementById('primaryAction');
       const secondaryAction = document.getElementById('secondaryAction');
 
-      primaryAction.textContent = book.isFree || purchased ? 'Read online' : 'Unlock access';
+      primaryAction.textContent = canRead ? 'Read online' : 'Unlock access';
       primaryAction.onclick = async () => {
         if (!user) {
           const confirmed = await confirmAction('Please log in to continue reading.');
           if (confirmed) window.location.href = 'auth.html';
           return;
         }
-        if (!book.isFree && !purchased) {
+        if (!canRead) {
           const result = await Books.purchase(book.id);
           if (result.ok) {
+            if (!userData.ownedBooks.includes(String(book.id))) {
+              userData.ownedBooks.push(String(book.id));
+            }
             showNotice(result.msg || 'Access unlocked.', 'success');
             window.location.reload();
           } else if (result.topUpUrl) {
@@ -185,16 +196,19 @@
         window.location.href = `reader.html?id=${book.id}`;
       };
 
-      secondaryAction.textContent = book.isFree || purchased ? 'Open reader' : 'Buy for $' + Number(book.price || 0).toFixed(2);
+      secondaryAction.textContent = canRead ? 'Open reader' : 'Buy for $' + Number(book.price || 0).toFixed(2);
       secondaryAction.onclick = async () => {
         if (!user) {
           const confirmed = await confirmAction('Please log in to continue reading.');
           if (confirmed) window.location.href = 'auth.html';
           return;
         }
-        if (!book.isFree && !purchased) {
+        if (!canRead) {
           const result = await Books.purchase(book.id);
           if (result.ok) {
+            if (!userData.ownedBooks.includes(String(book.id))) {
+              userData.ownedBooks.push(String(book.id));
+            }
             showNotice(result.msg || 'Access unlocked.', 'success');
             window.location.reload();
           } else if (result.topUpUrl) {
@@ -267,7 +281,10 @@
       }).join('');
     }
 
-    document.addEventListener('DOMContentLoaded', loadBook);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await window.waitForWimpyUserData?.();
+      loadBook();
+    });
   </script>
 </body>
 </html>

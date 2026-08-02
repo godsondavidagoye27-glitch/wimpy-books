@@ -152,10 +152,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
   <script src="config.js"></script>
+  <script src="wimpy-session-bootstrap.js"></script>
+  <script src="wimpy-user-data.js"></script>
   <script src="auth.js"></script>
   <script>
     async function renderDashboardHome() {
-      const user = window.WimpyIDSession?.getCurrentUser?.();
+      await window.waitForWimpyUserData?.();
+      const wimpyUser = window.WimpyUser || {};
+      const user = wimpyUser.isSignedIn ? wimpyUser.session?.user : null;
       const mount = document.getElementById('dashboardContent');
       if (!user) {
         mount.innerHTML = `
@@ -168,6 +172,7 @@
         return;
       }
       updateNav();
+      const recentRead = (wimpyUser.readingProgress || [])[0] || null;
       mount.innerHTML = '<div class="dashboard-loading"><div class="loader"></div><h3>Loading your dashboard</h3><p>Restoring your session and syncing your stats.</p></div>';
 
       try {
@@ -195,7 +200,7 @@
             </div>
             <div class="dashboard-side-card">
               <h3>Continue reading</h3>
-              ${data.recentReads && data.recentReads.length ? data.recentReads.map(read => `<article class="dashboard-item"><div><h4>${escapeHtml(read.title || 'Untitled')}</h4><p>Last: ${escapeHtml(new Date(read.lastReadAt).toLocaleString())}</p><span class="tag">Pos: ${Number(read.position)}</span></div><a href="reader.html?id=${escapeAttribute(String(read.bookId))}" class="btn-small">Resume</a></article>`).join('') : '<div class="empty-state">No recent reads yet</div>'}
+              ${recentRead ? `<article class="dashboard-item"><div><h4>${escapeHtml(recentRead.title || 'Untitled')}</h4><p>Last: ${escapeHtml(new Date(recentRead.last_read_at || recentRead.lastReadAt || '').toLocaleString())}</p><span class="tag">Pos: ${Number(recentRead.position || 0)}</span></div><a href="reader.html?id=${escapeAttribute(String(recentRead.book_id || recentRead.bookId || ''))}" class="btn-small">Resume</a></article>` : '<div class="empty-state">No recent reads yet</div>'}
             </div>
             <div class="dashboard-side-card">
               <h3>Your uploads</h3>
@@ -268,8 +273,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      await window.WimpyIDSession?.restoreSession?.();
-      const currentUser = window.WimpyIDSession?.getCurrentUser?.();
+      await window.waitForWimpyUserData?.();
+      const currentUser = window.WimpyUser?.isSignedIn ? window.WimpyUser.session?.user : null;
       if (currentUser?.email) {
         await syncBackendUser(currentUser);
       }

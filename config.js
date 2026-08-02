@@ -1,8 +1,8 @@
 // Loads /env.json (if present) and initializes Supabase/Firebase scaffolds.
-(async function () {
+window.APP_CONFIG_PROMISE = (async function () {
   try {
     const res = await fetch('/env.json');
-    if (!res.ok) return;
+    if (!res.ok) return window.APP_CONFIG || {};
     const cfg = await res.json();
     window.APP_CONFIG = cfg || {};
     if (cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY) {
@@ -22,6 +22,7 @@
       }
     }
   } catch (err) {
-    // env.json not found or parse error — skip
+    console.warn('env.json load failed', err);
   }
+  return window.APP_CONFIG || {};
 })();

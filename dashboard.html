@@ -38,6 +38,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
   <script src="config.js"></script>
+  <script src="wimpy-session-bootstrap.js"></script>
+  <script src="wimpy-user-data.js"></script>
   <script src="auth.js"></script>
   <script>
     async function parseJsonResponse(response, fallback = null) {
@@ -58,12 +60,14 @@
     }
 
     async function loadDashboard() {
+      await window.waitForWimpyUserData?.();
       await showDashboardLoading();
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
+      const wimpyUser = window.WimpyUser || {};
+      if (!wimpyUser.isSignedIn) {
         window.location.href = 'auth.html';
         return;
       }
+      const currentUser = wimpyUser.session?.user;
       const apiBase = getApiBase();
       const token = currentUser.token || '';
       let response = await fetch(`${apiBase}/dashboard`, {
@@ -110,7 +114,8 @@
       `;
 
       const continueMount = document.getElementById('continueReading');
-      if (data.recentReads && data.recentReads.length) {
+      const recentRead = (window.WimpyUser?.readingProgress || [])[0] || null;
+      if (recentRead) {
         continueMount.innerHTML = `
           <div class="info-card dashboard-panel">
             <div class="panel-header">
@@ -121,19 +126,16 @@
               <a href="store.html" class="btn-small">Browse books</a>
             </div>
             <div class="dashboard-list">
-              ${data.recentReads.map(read => `
-                <article class="dashboard-item">
-                  <div>
-                    <h4>${escapeHtml(read.title || 'Untitled')}</h4>
-                    <p>Last read ${escapeHtml(new Date(read.lastReadAt).toLocaleString())}</p>
-                    <span class="tag">Position: ${Number(read.position)}</span>
-                    <span class="tag">Time: ${Math.round(Number(read.timeSpent) || 0)} sec</span>
-                  </div>
-                  <div class="card-actions">
-                    <a href="reader.html?id=${escapeAttribute(String(read.bookId))}" class="btn-small">Resume</a>
-                  </div>
-                </article>
-              `).join('')}
+              <article class="dashboard-item">
+                <div>
+                  <h4>${escapeHtml(recentRead.title || 'Untitled')}</h4>
+                  <p>Last read ${escapeHtml(new Date(recentRead.last_read_at || recentRead.lastReadAt || '').toLocaleString())}</p>
+                  <span class="tag">Position: ${Number(recentRead.position || 0)}</span>
+                </div>
+                <div class="card-actions">
+                  <a href="reader.html?id=${escapeAttribute(String(recentRead.book_id || recentRead.bookId || ''))}" class="btn-small">Resume</a>
+                </div>
+              </article>
             </div>
           </div>
         `;

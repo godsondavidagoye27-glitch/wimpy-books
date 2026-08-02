@@ -52,10 +52,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
   <script src="config.js"></script>
+  <script src="wimpy-session-bootstrap.js"></script>
+  <script src="wimpy-user-data.js"></script>
   <script src="auth.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const bookId = params.get('id');
+    const savedPosition = Number(localStorage.getItem(`fb_reader_progress_${bookId}`) || '0');
 
     function decodeDataUrlText(dataUrl) {
       try {
@@ -128,29 +131,20 @@
     }
 
     async function renderReader() {
+      await window.waitForWimpyUserData?.();
       const book = await Books.getById(bookId);
       const content = document.getElementById('readerContent');
       if (!book) {
         content.innerHTML = '<h2 class="empty-state">❌ Book not found.</h2>';
-        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
         return;
       }
 
-      const user = window.WimpyIDSession?.getCurrentUser?.();
+      const userData = window.WimpyUser || {};
+      const user = userData.isSignedIn ? userData.session?.user : null;
       const bookIsFree = Boolean(book.isFree);
-      let access = { ok: true, canRead: bookIsFree, owned: false };
-      if (!bookIsFree) {
-        access = await Books.getAccess(book.id);
-      }
-      const purchased = Boolean(access.owned);
-      const canRead = bookIsFree || Boolean(access.canRead);
-      const accessError = !access.ok && access.msg && !access.msg.toLowerCase().includes('login required');
-
-      if (!bookIsFree && accessError && !canRead) {
-        content.innerHTML = `\n          <article class="book-article">\n            <h1>${escapeHtml(book.title || 'Untitled')}</h1>\n            <p class="book-author">by ${escapeHtml(book.author || 'Unknown author')}</p>\n            <hr>\n            <p class="book-text">${safeTextToLineBreaks(book.preview || book.description || '')}</p>\n            <div class="empty-state">\n              <h2>⚠️ Access check failed</h2>\n              <p>${escapeHtml(access.msg || 'Unable to verify access right now. You can still view the preview.')}</p>\n              <button class="btn-primary" id="unlockButtonAlt">Unlock access</button>\n            </div>\n          </article>\n        `;
-        document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
-        return;
-      }
+      const ownsBook = Boolean(userData.ownedBooks?.includes(String(book.id)));
+      const hasSub = Boolean(userData.hasActiveSubscription);
+      const canRead = bookIsFree || ownsBook || hasSub;
 
       if (!canRead) {
         content.innerHTML = `\n          <article class="book-article">\n            <h1>${escapeHtml(book.title || 'Untitled')}</h1>\n            <p class="book-author">by ${escapeHtml(book.author || 'Unknown author')}</p>\n            <hr>\n            <p class="book-text">${safeTextToLineBreaks(book.preview || book.description || '')}</p>\n            <div class="empty-state">\n              <p>This book is locked for full reading access. Unlock it to continue reading.</p>\n              <button class="btn-primary" id="unlockButtonAlt">Unlock access</button>\n            </div>\n          </article>\n        `;
@@ -199,7 +193,7 @@
         const badgeList = JSON.parse(localStorage.getItem('fb_badges') || '[]');
         if (!badgeList.includes('Curious Reader')) badgeList.push('Curious Reader');
         localStorage.setItem('fb_badges', JSON.stringify(badgeList));
-        const current = window.WimpyIDSession?.getCurrentUser?.();
+        const current = Auth.getCurrentUser();
         if (current) {
           current.badges = badgeList;
           Auth.setCurrentUser(current);
@@ -208,7 +202,7 @@
     }
 
     async function unlockBook(id) {
-      if (!window.WimpyIDSession?.getCurrentUser?.()) {
+      if (!window.WimpyUser?.isSignedIn) {
         const confirmed = await confirmAction('Please log in to unlock this title.');
         if (confirmed) window.location.href = 'auth.html';
         document.getElementById('unlockButtonAlt')?.addEventListener('click', () => unlockBook(Number(book.id)));
@@ -325,7 +319,7 @@
       // persist page index locally and to server (non-blocking)
       try {
         if (bookId) localStorage.setItem(`fb_reader_page_${bookId}`, String(currentPage));
-        if (Auth.getCurrentUser()) Books.savePage(bookId, currentPage).catch(() => {});
+        if (window.WimpyUser?.isSignedIn) Books.savePage(bookId, currentPage).catch(() => {});
       } catch (err) { /* ignore */ }
     }
 
@@ -401,7 +395,7 @@
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(async () => {
           localStorage.setItem(`fb_reader_progress_${bookId}`, String(window.scrollY));
-          if (window.WimpyIDSession?.getCurrentUser?.()) {
+          if (window.WimpyUser?.isSignedIn) {
             await Books.saveProgress(bookId, window.scrollY);
           }
         }, 200);

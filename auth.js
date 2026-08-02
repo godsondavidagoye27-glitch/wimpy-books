@@ -263,6 +263,21 @@ const Auth = {
   }
 };
 
+function normalizeSessionUser(session) {
+  if (!session?.user) return null;
+  const user = session.user;
+  return {
+    id: user.id,
+    email: user.email || '',
+    name: user.user_metadata?.full_name || user.user_metadata?.name || (user.email ? user.email.split('@')[0] : 'Reader'),
+    token: session.access_token || '',
+    provider: user.app_metadata?.provider || 'supabase',
+    avatarUrl: user.user_metadata?.avatar_url || null,
+    badges: ['WimpyID Member'],
+    signedInAt: new Date().toISOString()
+  };
+}
+
 window.WimpyIDSession = {
   getCurrentUser,
   getToken: getSessionToken,
@@ -274,6 +289,38 @@ window.WimpyIDSession = {
     window.location.href = 'auth.html';
   }
 };
+
+let hasProcessedBootstrapSession = false;
+
+function processBootstrapSession(detail) {
+  if (hasProcessedBootstrapSession) return;
+  hasProcessedBootstrapSession = true;
+  const session = detail?.session || null;
+  if (session) {
+    const normalized = normalizeSessionUser(session);
+    if (normalized) {
+      Auth.setCurrentUser(normalized);
+    }
+  } else {
+    localStorage.removeItem('fb_current');
+    clearWimpyIDSession();
+  }
+  updateNav();
+}
+
+window.addEventListener('wimpybooks:session-ready', (event) => {
+  processBootstrapSession(event?.detail || {});
+});
+
+if (window.__WimpyBootstrapSessionDetail) {
+  processBootstrapSession(window.__WimpyBootstrapSessionDetail);
+} else if (window.WimpyBootstrapSessionPromise) {
+  window.WimpyBootstrapSessionPromise.then(processBootstrapSession).catch(() => {});
+}
+
+window.addEventListener('wimpybooks:user-data-ready', () => {
+  updateNav();
+});
 
 function ensureNoticeContainer() {
   if (document.getElementById('siteNoticeContainer')) return;
