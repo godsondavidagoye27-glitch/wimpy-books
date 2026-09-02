@@ -14,15 +14,15 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="reader-toolbar">
-    <a href="store.html" class="reader-back">← Back to Store</a>
-    <div class="reader-title" id="readerTitle">Loading...</div>
+  <div class="reader-toolbar" role="toolbar" aria-label="Reader controls">
+    <a href="store.html" class="reader-back" aria-label="Back to store">← Back to Store</a>
+    <div class="reader-title" id="readerTitle" aria-live="polite" role="heading" aria-level="1">Loading...</div>
     <div class="reader-controls">
-      <button onclick="jumpToPreviousChapter()" title="Previous chapter">◀</button>
-      <button onclick="jumpToNextChapter()" title="Next chapter">▶</button>
-      <button onclick="changeFontSize(-2)" title="Smaller text">A-</button>
-      <button onclick="changeFontSize(2)" title="Larger text">A+</button>
-      <button class="theme-toggle" id="themeToggle" type="button" title="Toggle theme">🌙</button>
+      <button onclick="jumpToPreviousChapter()" title="Previous chapter" aria-label="Previous chapter"><span aria-hidden="true">◀</span></button>
+      <button onclick="jumpToNextChapter()" title="Next chapter" aria-label="Next chapter"><span aria-hidden="true">▶</span></button>
+      <button onclick="changeFontSize(-2)" title="Smaller text" aria-label="Decrease text size"><span aria-hidden="true">A-</span></button>
+      <button onclick="changeFontSize(2)" title="Larger text" aria-label="Increase text size"><span aria-hidden="true">A+</span></button>
+      <button class="theme-toggle" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle dark/light theme"><span aria-hidden="true">🌙</span></button>
     </div>
   </div>
 

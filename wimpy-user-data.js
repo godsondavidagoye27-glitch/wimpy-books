@@ -17,7 +17,7 @@
   async function loadReadingProgress(client, userId) {
     if (!client || !userId) return [];
     try {
-      const { data, error } = await client.from('reading_progress').select('*').eq('user_id', userId).order('last_read_at', { ascending: false });
+      const { data, error } = await client.from('book_reading_progress').select('*').eq('user_id', userId).order('last_read_at', { ascending: false });
       if (error) return [];
       return Array.isArray(data) ? data : [];
     } catch (err) {

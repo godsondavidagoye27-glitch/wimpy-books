@@ -27,11 +27,11 @@
 
   <section class="form-page">
     <div class="form-container">
-      <h1>📊 Your dashboard</h1>
+      <h1><span aria-hidden="true">📊</span> Your dashboard</h1>
       <p class="form-subtitle">See your reading progress, uploads, earnings, and earned badges in one place.</p>
-      <div id="dashboardStats" class="dashboard-stats"></div>
-      <div id="continueReading" class="dashboard-list"></div>
-      <div id="dashboardList" class="dashboard-list"></div>
+      <div id="dashboardStats" class="dashboard-stats" aria-live="polite" aria-label="Dashboard statistics"></div>
+      <div id="continueReading" class="dashboard-list" aria-live="polite" aria-label="Reading progress"></div>
+      <div id="dashboardList" class="dashboard-list" aria-live="polite" aria-label="Dashboard content"></div>
     </div>
   </section>
 
@@ -71,11 +71,11 @@
       const apiBase = getApiBase();
       const token = currentUser.token || '';
       let response = await fetch(`${apiBase}/dashboard`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-user-email': currentUser?.email || '' }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (response.status === 401 || response.status === 403) {
         await showDashboardLoading('Retrying dashboard access...');
-        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}`, 'x-user-email': currentUser?.email || '' } });
+        response = await fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
       }
       const data = await parseJsonResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
       const statsMount = document.getElementById('dashboardStats');
@@ -174,6 +174,98 @@
           </div>
         </div>
       `;
+
+      // Load admin panel if user is admin
+      if (currentUser?.isAdmin) {
+        loadAdminPanel(apiBase, token);
+      }
+    }
+
+    async function loadAdminPanel(apiBase, token) {
+      try {
+        const response = await fetch(`${apiBase}/admin/books/pending`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+        const pendingBooks = await response.json();
+        if (!Array.isArray(pendingBooks) || pendingBooks.length === 0) return;
+
+        const mount = document.getElementById('dashboardList');
+        const adminPanel = `
+          <div class="info-card dashboard-panel admin-panel" style="border-top: 3px solid #ff9500; margin-top: 2rem;">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">🔑 Admin</p>
+                <h3>Pending approvals</h3>
+              </div>
+            </div>
+            <div class="dashboard-list">
+              ${pendingBooks.map(book => `
+                <article class="dashboard-item">
+                  <div>
+                    <h3>${escapeHtml(book.title)}</h3>
+                    <p>${escapeHtml(book.description || '')}</p>
+                    <p class="subtle">by ${escapeHtml(book.author || 'Unknown')}</p>
+                    <span class="tag">Pending approval</span>
+                  </div>
+                  <div class="card-actions">
+                    <a href="display.html?id=${book.id}" class="btn-small">Preview</a>
+                    <button class="btn-small" onclick="approveBook(${book.id})">Approve</button>
+                    <button class="btn-small btn-outline" onclick="rejectBook(${book.id})">Reject</button>
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        mount.innerHTML = mount.innerHTML + adminPanel;
+      } catch (error) {
+        console.warn('Failed to load admin panel', error);
+      }
+    }
+
+    async function approveBook(id) {
+      const confirmed = await confirmAction('Approve this book for publication?');
+      if (!confirmed) return;
+      const token = window.Auth?.getCurrentUser?.()?.token || '';
+      const apiBase = getApiBase();
+      try {
+        const response = await fetch(`${apiBase}/admin/books/${id}/approve`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.ok) {
+          showNotice('Book approved!', 'success');
+          loadDashboard();
+        } else {
+          showNotice(data.msg || 'Could not approve book.', 'error');
+        }
+      } catch (error) {
+        showNotice('Unable to approve book.', 'error');
+      }
+    }
+
+    async function rejectBook(id) {
+      const confirmed = await confirmAction('Reject this book? It will not be published.');
+      if (!confirmed) return;
+      const token = window.Auth?.getCurrentUser?.()?.token || '';
+      const apiBase = getApiBase();
+      try {
+        const response = await fetch(`${apiBase}/admin/books/${id}/reject`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.ok) {
+          showNotice('Book rejected.', 'success');
+          loadDashboard();
+        } else {
+          showNotice(data.msg || 'Could not reject book.', 'error');
+        }
+      } catch (error) {
+        showNotice('Unable to reject book.', 'error');
+      }
     }
 
     async function deleteUpload(id) {

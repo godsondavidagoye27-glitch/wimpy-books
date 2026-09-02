@@ -3,6 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { startServer } = require('../server');
 
+// Enable dev-token authentication for tests
+process.env.ALLOW_DEV_AUTH = 'true';
+
 let server;
 let baseUrl;
 
@@ -35,8 +38,7 @@ test('authenticated uploads and purchases work with WimpyID-style bearer tokens'
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'x-user-email': email
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
       title: 'Wimpy Test Book',
@@ -58,8 +60,7 @@ test('authenticated uploads and purchases work with WimpyID-style bearer tokens'
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'x-user-email': email
+      Authorization: `Bearer ${token}`
     }
   });
   const purchaseBody = await purchaseRes.json();
@@ -68,8 +69,7 @@ test('authenticated uploads and purchases work with WimpyID-style bearer tokens'
 
   const accessRes = await fetch(`${baseUrl}/books/${uploadBody.book.id}/access`, {
     headers: {
-      Authorization: `Bearer ${token}`,
-      'x-user-email': email
+      Authorization: `Bearer ${token}`
     }
   });
   const accessBody = await accessRes.json();
@@ -83,18 +83,38 @@ test('subscriptions grant access without per-book wallet charges', async () => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'x-user-email': email
+      Authorization: `Bearer ${token}`
     }
   });
   const subscriptionBody = await subscriptionRes.json();
   assert.equal(subscriptionRes.status, 200);
   assert.equal(subscriptionBody.ok, true);
 
-  const accessRes = await fetch(`${baseUrl}/books/999/access`, {
+  const bookRes = await fetch(`${baseUrl}/books`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
-      'x-user-email': email
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      title: 'Unlimited Access Trial Book',
+      author: 'Tester',
+      description: 'A book unlocked by the unlimited subscription.',
+      preview: 'Preview text',
+      isFree: false,
+      price: 1900,
+      fileName: 'sub.txt',
+      fileType: 'text/plain',
+      fileData: 'data:text/plain;base64,SGVsbG8sIFdvcmxkIQ=='
+    })
+  });
+  const bookBody = await bookRes.json();
+  assert.equal(bookRes.status, 200);
+  assert.equal(bookBody.ok, true);
+
+  const accessRes = await fetch(`${baseUrl}/books/${bookBody.book.id}/access`, {
+    headers: {
+      Authorization: `Bearer ${token}`
     }
   });
   const accessBody = await accessRes.json();
@@ -118,8 +138,7 @@ test('insufficient wallet balance is rejected without recording a purchase', asy
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'x-user-email': email
+        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
         title: 'Wimpy Balance Test',
@@ -140,8 +159,7 @@ test('insufficient wallet balance is rejected without recording a purchase', asy
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'x-user-email': email
+        Authorization: `Bearer ${token}`
       }
     });
     const purchaseBody = await purchaseRes.json();

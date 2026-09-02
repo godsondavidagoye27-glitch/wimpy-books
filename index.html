@@ -41,9 +41,9 @@
         <a href="upload.html" class="btn-outline">Publish your own</a>
       </div>
       <div class="hero-pill-row">
-        <span class="hero-pill">📚 Instant previews</span>
-        <span class="hero-pill">✨ Smooth page flips</span>
-        <span class="hero-pill">🌍 Synced everywhere</span>
+        <span class="hero-pill" aria-hidden="true">📚 Instant previews</span>
+        <span class="hero-pill" aria-hidden="true">✨ Smooth page flips</span>
+        <span class="hero-pill" aria-hidden="true">🌍 Synced everywhere</span>
       </div>
     </div>
     <div class="hero-visual" aria-hidden="true">
@@ -58,7 +58,7 @@
 
   <section class="tester-banner">
     <div>
-      <h3>👋 Quick start for testers</h3>
+      <h3><span aria-hidden="true">👋</span> Quick start for testers</h3>
       <p>Create an account, browse the store, and try uploading a short book in a few clicks.</p>
     </div>
     <a href="auth.html" class="btn-primary">Start testing</a>
@@ -66,17 +66,17 @@
 
   <section class="guide-section">
     <article class="guide-card">
-      <span class="guide-number">1</span>
+      <span class="guide-number" aria-hidden="true">1</span>
       <h3>For readers</h3>
       <p>Sign in, browse the library, preview books, and continue reading from your dashboard.</p>
     </article>
     <article class="guide-card">
-      <span class="guide-number">2</span>
+      <span class="guide-number" aria-hidden="true">2</span>
       <h3>For uploaders</h3>
       <p>Publish a sample book, add a cover image, and make it visible in the store.</p>
     </article>
     <article class="guide-card">
-      <span class="guide-number">3</span>
+      <span class="guide-number" aria-hidden="true">3</span>
       <h3>What to test</h3>
       <p>Try search, trending views, preview pages, and the reading flow on mobile and desktop.</p>
     </article>
@@ -142,6 +142,42 @@
     <div class="newsletter-form">
       <input type="email" id="newsletterEmail" placeholder="Enter your email address">
       <button class="btn-primary" type="button" onclick="subscribeNewsletter()">Join now</button>
+    </div>
+  </section>
+
+  <section class="pricing-section">
+    <div class="section-heading">
+      <h2 class="section-title">💳 Simple Pricing</h2>
+      <p class="section-copy">Choose how you read: pick individual books or unlock unlimited access.</p>
+    </div>
+    <div class="pricing-grid">
+      <article class="pricing-card">
+        <h3>Per-Book Purchase</h3>
+        <p class="pricing-desc">Read one book at a time</p>
+        <div class="pricing-highlight">Flexible</div>
+        <ul class="pricing-features">
+          <li>✓ Preview any book free</li>
+          <li>✓ Buy individual titles</li>
+          <li>✓ Read offline</li>
+          <li>✓ Keep forever</li>
+        </ul>
+        <p class="pricing-note">Prices vary by book, typically ₦1,000 – ₦5,000</p>
+        <a href="store.html" class="btn-outline btn-full">Browse books</a>
+      </article>
+      <article class="pricing-card featured">
+        <span class="pricing-badge">Most Popular</span>
+        <h3>Unlimited Subscription</h3>
+        <p class="pricing-desc">Read everything</p>
+        <div class="pricing-highlight">₦4,999/month</div>
+        <ul class="pricing-features">
+          <li>✓ Access all premium books</li>
+          <li>✓ New releases included</li>
+          <li>✓ Cancel anytime</li>
+          <li>✓ Offline reading</li>
+        </ul>
+        <p class="pricing-note">First month, then renews monthly</p>
+        <a href="auth.html" class="btn-primary btn-full">Get unlimited access</a>
+      </article>
     </div>
   </section>
 

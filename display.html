@@ -32,12 +32,12 @@
   </nav>
 
   <section class="book-detail" id="bookDetail">
-    <div class="detail-cover" id="detailCover">📖</div>
+    <div class="detail-cover" id="detailCover" aria-hidden="true">📖</div>
     <div class="detail-info">
       <span class="tag" id="detailTag">Preview</span>
       <h1 id="detailTitle">Loading…</h1>
-      <p class="author-big" id="detailAuthor"></p>
-      <div class="rating" id="detailRating"></div>
+      <p class="author-big" id="detailAuthor" role="doc-subtitle"></p>
+      <div class="rating" id="detailRating" role="doc-pagebreak" aria-label="Book rating"></div>
       <div class="meta-row">
         <div><strong>Access:</strong> <span id="detailAccess"></span></div>
         <div><strong>Price:</strong> <span id="detailPrice"></span></div>
@@ -58,9 +58,9 @@
         <a href="mailto:support@wimpyco.ng" target="_blank" rel="noreferrer">📧</a>
       </div>
 
-      <div class="comment-box">
+      <div class="comment-box" role="region" aria-label="Review section">
         <h3>Leave a review</h3>
-        <form id="commentForm">
+        <form id="commentForm" aria-label="Comment submission form">
           <textarea id="commentText" rows="4" placeholder="Share your thoughts on this book"></textarea>
           <button class="btn-small" type="submit">Post comment</button>
         </form>
@@ -101,7 +101,10 @@
     let spotlightIndex = 0;
 
     function getPremiumBooks(books) {
-      return (books || []).filter(entry => entry.premiumUploader || entry.promoted || Number(entry.traffic || 0) > 0);
+      return (books || []).filter(entry => entry.premiumUploader || entry.promoted || Number(entry.traffic || 0) > 0).map(entry => ({
+        ...entry,
+        spotlightReason: entry.promoted ? 'Sponsored' : (entry.premiumUploader ? 'Premium uploader' : 'High traffic')
+      }));
     }
 
     function renderPremiumSpotlight(books) {
@@ -113,11 +116,12 @@
       }
       const book = premiumBooks[spotlightIndex % premiumBooks.length];
       const coverStyle = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
+      const reasonLabel = book.spotlightReason || 'Featured';
       mount.innerHTML = `
         <div class="spotlight-body">
           <div class="spotlight-cover" style="${coverStyle}">📖</div>
           <div class="spotlight-info">
-            <span class="tag">Premium uploader spotlight</span>
+            <span class="tag">${escapeHtml(reasonLabel)}</span>
             <h3>${escapeHtml(book.title || 'Untitled')}</h3>
             <p>${escapeHtml(book.preview || book.description || 'A refined read from a premium uploader.')}</p>
             <div class="card-actions">
@@ -144,9 +148,9 @@
       document.getElementById('detailDescription').textContent = book.preview || book.description;
       document.getElementById('detailCover').style.cssText = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
       document.getElementById('detailAccess').textContent = book.isFree ? 'Free online' : 'Paid access';
-      document.getElementById('detailPrice').textContent = book.isFree ? 'Free' : `$${Number(book.price || 0).toFixed(2)}`;
+      document.getElementById('detailPrice').textContent = book.isFree ? 'Free' : `₦${Number(book.price || 0).toLocaleString()}`;
       document.getElementById('detailReviews').textContent = `${book.ratings || 0} ratings`;
-      document.getElementById('detailPromoted').textContent = book.promoted ? 'Yes' : 'No';
+      document.getElementById('detailPromoted').textContent = book.promoted ? 'Sponsored' : 'No';
       document.getElementById('detailRating').innerHTML = `⭐ ${Number(book.rating || 0).toFixed(1)} · ${book.ratings || 0} reviews`;
       const userData = window.WimpyUser || {};
       const user = userData.isSignedIn ? userData.session?.user : null;
@@ -196,7 +200,7 @@
         window.location.href = `reader.html?id=${book.id}`;
       };
 
-      secondaryAction.textContent = canRead ? 'Open reader' : 'Buy for $' + Number(book.price || 0).toFixed(2);
+      secondaryAction.textContent = canRead ? 'Open reader' : 'Buy for ₦' + Number(book.price || 0).toLocaleString();
       secondaryAction.onclick = async () => {
         if (!user) {
           const confirmed = await confirmAction('Please log in to continue reading.');
@@ -260,7 +264,7 @@
     function renderComments(book) {
       const mount = document.getElementById('commentList');
       mount.innerHTML = (book.comments || []).map(comment => `
-        <div class="comment-item"><strong>${escapeHtml(comment.user || 'Reader')}</strong><p>${escapeHtml(comment.text || '')}</p></div>
+        <div class="comment-item"><strong>${escapeHtml(comment.user_name || comment.user || 'Reader')}</strong><p>${escapeHtml(comment.text || '')}</p></div>
       `).join('');
     }
 

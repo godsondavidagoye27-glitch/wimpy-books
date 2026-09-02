@@ -32,7 +32,7 @@
   </nav>
 
   <section class="store-header">
-    <h1>📚 Wimpy Books Library</h1>
+    <h1><span aria-hidden="true">📚</span> Wimpy Books Library</h1>
     <p>Preview every title first, read free stories online, and unlock premium downloads when you choose.</p>
   </section>
 
@@ -60,7 +60,7 @@
     <a href="store.html?view=trending" class="tab-btn" id="tabTrending">Trending</a>
   </section>
 
-  <section class="store-grid" id="storeGrid"></section>
+  <section class="store-grid" id="storeGrid" aria-live="polite" aria-label="Book library grid"></section>
 
   <footer class="leg">
     <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
@@ -117,48 +117,23 @@
         const coverStyle = safeBackgroundStyle(book.coverImageData, book.cover || 'linear-gradient(135deg,#667eea,#764ba2)');
         const priceLabel = Number(book.price || 0) > 0 ? `₦${Number(book.price || 0).toLocaleString()}` : 'Free';
         const previewText = book.preview || book.description || 'A beautiful preview awaits.';
-        return `
-          <article class="book-card" data-genre="${escapeHtml((book.genre || 'other').toLowerCase())}">
-            <div class="book-cover" style="${coverStyle}">
-              <span class="cover-icon">📖</span>
-              <div class="preview-hover">${escapeHtml(previewText)}</div>
-            </div>
-            <h3>${escapeHtml(book.title || 'Untitled')}</h3>
-            <p class="author">${escapeHtml(book.author || 'Unknown author')}</p>
-            <span class="tag">${escapeHtml(book.genre || 'other')}</span>
-            <p class="preview-snippet">${escapeHtml(previewText)}</p>
-            <div class="card-actions">
-              <a href="preview.html?id=${escapeAttribute(String(book.id))}" class="btn-small">Preview</a>
-              <a href="${readLink}" class="btn-small download">${readText}</a>
-            </div>
-            <div class="card-meta"><span>${priceLabel}</span>${activeView === 'trending' ? `<span>${Number(book.traffic || 0)} traffic</span><span>${Number(book.reads || 0)} reads</span>` : ''}</div>
-          </article>
-        `;
-      }).join('');
+        const sponsorBadge = book.promoted ? `<span class=\"sponsor-badge\">📣 Sponsored</span>` : '';\n        return `\n          <article class=\"book-card\" data-genre=\"${escapeHtml((book.genre || 'other').toLowerCase())}\">\n            <div class=\"book-cover\" style=\"${coverStyle}\">\n              <span class=\"cover-icon\">📖</span>\n              ${sponsorBadge}\n              <div class=\"preview-hover\">${escapeHtml(previewText)}</div>\n            </div>\n            <h3>${escapeHtml(book.title || 'Untitled')}</h3>\n            <p class=\"author\">${escapeHtml(book.author || 'Unknown author')}</p>\n            <span class=\"tag\">${escapeHtml(book.genre || 'other')}</span>\n            <p class=\"preview-snippet\">${escapeHtml(previewText)}</p>\n            <div class=\"card-actions\">\n              <a href=\"preview.html?id=${escapeAttribute(String(book.id))}\" class=\"btn-small\">Preview</a>\n              <a href=\"${readLink}\" class=\"btn-small download\">${readText}</a>\n            </div>\n            <div class=\"card-meta\"><span>${priceLabel}</span>${activeView === 'trending' ? `<span>${Number(book.traffic || 0)} traffic</span><span>${Number(book.reads || 0)} reads</span>` : ''}</div>\n          </article>\n        `;\n      }).join('');
     }
 
     function filterBooks() {
       const search = document.getElementById('searchInput').value.toLowerCase();
       const genre = document.getElementById('genreFilter').value;
-      const cards = document.querySelectorAll('.book-card');
-      let visibleCount = 0;
-      cards.forEach(card => {
-        const title = card.querySelector('h3').textContent.toLowerCase();
-        const author = card.querySelector('.author').textContent.toLowerCase();
-        const cardGenre = card.dataset.genre;
-        const matchSearch = title.includes(search) || author.includes(search) || card.textContent.toLowerCase().includes(search);
+      const visibleBooks = storeBooks.filter(book => {
+        const title = String(book.title || '').toLowerCase();
+        const author = String(book.author || '').toLowerCase();
+        const cardGenre = String(book.genre || 'other').toLowerCase();
+        const haystack = `${title} ${author} ${cardGenre}`.toLowerCase();
+        const matchSearch = !search || haystack.includes(search);
         const matchGenre = genre === 'all' || cardGenre === genre;
-        const isVisible = matchSearch && matchGenre;
-        card.style.display = isVisible ? 'block' : 'none';
-        if (isVisible) visibleCount += 1;
+        return matchSearch && matchGenre;
       });
-      const emptyState = document.querySelector('.empty-state');
-      if (!visibleCount && !emptyState) {
-        const grid = document.getElementById('storeGrid');
-        grid.innerHTML += `<div class="empty-state"><div class="empty-icon">🔎</div><h3>No results for “${escapeHtml(search)}”</h3><p>Try another title, author, or genre.</p></div>`;
-      } else if (emptyState && search) {
-        emptyState.remove();
-      }
+
+      renderStore(visibleBooks);
     }
 
     async function loadStore() {

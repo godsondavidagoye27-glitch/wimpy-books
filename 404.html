@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Wimpy Books — Page not found. Preview, read and unlock digital books.">
+<meta property="og:title" content="Page Not Found — Wimpy Books">
+<meta property="og:description" content="The page you're looking for doesn't exist.">
+<meta property="og:url" content="https://wimpybooks.netlify.app">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d4af37">
+<title>Page Not Found — Wimpy Books</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('wimpybooks-theme');
+    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="one">
+    <a class="nav-logo" href="index.html" aria-label="Wimpy Books home">
+      <img src="logo.svg" alt="Wimpy Books logo" width="40" height="40">
+      <span>Wimpy Books</span>
+    </a>
+    <a href="store.html">📚 Store</a>
+    <a href="upload.html">⬆️ Upload</a>
+    <a href="contacts.html">📞 Contacts</a>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+  </nav>
+
+  <section class="book-detail">
+    <div class="detail-cover" style="font-size: 4rem; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea, #764ba2); color: white;">❌</div>
+    <div class="detail-info">
+      <h1>Page Not Found</h1>
+      <p class="author-big">404 Error</p>
+      <p>The book or page you're looking for doesn't exist or may have been removed. Let's get you back on track.</p>
+      <div class="detail-actions">
+        <a href="index.html" class="btn-primary">Go Home</a>
+        <a href="store.html" class="btn-outline">Browse Library</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="leg">
+    <p>© 2026 Wimpy Books. Built for readers, by readers. 📖</p>
+  </footer>
+
+  <script src="auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const themeToggle = document.getElementById('themeToggle');
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+      themeToggle.addEventListener('click', () => {
+        const theme = document.documentElement.getAttribute('data-theme');
+        const newTheme = theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('wimpybooks-theme', newTheme);
+        themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      });
+    });
+  </script>
+</body>
+</html>

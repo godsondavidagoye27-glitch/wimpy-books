@@ -69,10 +69,21 @@ function getWimpyIDSessionStorageKey() {
 
 function parseWimpyIDSessionFromUrl() {
   if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
+  // Read from hash instead of query string for security (prevents tokens in URL history/logs)
+  const hash = window.location.hash || '';
+  if (!hash) return null;
+  const params = new URLSearchParams(hash.substring(1)); // Remove leading #
   const token = params.get('token');
   const email = params.get('email');
   if (!token || !email) return null;
+  
+  // Scrub the token from visible URL and browser history immediately
+  try {
+    window.history.replaceState({}, '', window.location.pathname + window.location.search);
+  } catch (e) {
+    // History API might be restricted in some contexts
+  }
+  
   return {
     id: params.get('id') || `wimpyid:${email}`,
     email: email.trim().toLowerCase(),
@@ -197,7 +208,7 @@ async function syncSupabaseProgress(bookId, position, timeSpent = 0) {
   const currentUser = Auth?.getCurrentUser?.();
   if (!client || !currentUser?.id) return;
   try {
-    await client.from('reading_progress').upsert({
+    await client.from('book_reading_progress').upsert({
       user_id: currentUser.id,
       book_id: String(bookId),
       position: Number(position || 0),
@@ -394,8 +405,7 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       },
       body: JSON.stringify(book)
     });
@@ -408,8 +418,7 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       },
       body: JSON.stringify({ text })
     });
@@ -420,8 +429,7 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       },
       body: JSON.stringify({ score })
     });
@@ -432,8 +440,7 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       }
     });
     const data = await parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -448,8 +455,7 @@ const Books = {
     const response = await fetch(`${API_BASE}/books/${id}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       }
     });
     return parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -458,8 +464,7 @@ const Books = {
     try {
       const response = await fetch(`${API_BASE}/books/${id}/access`, {
         headers: {
-            Authorization: `Bearer ${getSessionToken() || ''}`,
-            'x-user-email': getCurrentUser()?.email || ''
+            Authorization: `Bearer ${getSessionToken() || ''}`
           }
       });
       const data = await parseApiResponse(response, null);
@@ -474,8 +479,7 @@ const Books = {
   async getProgress(id) {
     const response = await fetch(`${API_BASE}/books/${id}/progress`, {
       headers: {
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       }
     });
     return parseApiResponse(response, { ok: false, msg: 'Unable to reach the Wimpy Books server.' });
@@ -485,8 +489,7 @@ const Books = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getSessionToken() || ''}`,
-        'x-user-email': getCurrentUser()?.email || ''
+        Authorization: `Bearer ${getSessionToken() || ''}`
       },
       body: JSON.stringify({ position })
     });
@@ -505,8 +508,7 @@ const Books = {
     try {
       const response = await fetch(`${API_BASE}/books/${id}/file`, {
         headers: {
-            Authorization: `Bearer ${getSessionToken() || ''}`,
-            'x-user-email': getCurrentUser()?.email || ''
+            Authorization: `Bearer ${getSessionToken() || ''}`
           }
       });
       const contentType = response.headers.get('content-type') || 'application/octet-stream';
