@@ -39,10 +39,21 @@
   async function hasActiveSubscription(client, userId) {
     if (!client || !userId) return false;
     try {
-      const { data, error } = await client.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
+      // Mirrors server.js's getUserSubscription: WimpyPay owns subscription
+      // state (shared Supabase project). Filter to WimpyBooks' own plan so a
+      // subscription to a different Wimpy Cooperations product doesn't count.
+      const { data, error } = await client
+        .from('subscriptions')
+        .select('id, status, current_period_end, plans!inner(product_name)')
+        .eq('user_id', userId)
+        .eq('plans.product_name', 'WimpyBooks')
+        .eq('status', 'active')
+        .order('current_period_end', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (error || !data) return false;
-      if (!data.active) return false;
-      return new Date(data.expires_at || 0) > new Date();
+      if (data.current_period_end && new Date(data.current_period_end) <= new Date()) return false;
+      return true;
     } catch (err) {
       return false;
     }

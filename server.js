@@ -7,7 +7,6 @@ const { createClient } = require('@supabase/supabase-js');
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const ADMIN_EMAILS = new Set((process.env.ADMIN_EMAILS || 'admin@wimpyco.ng').split(',').map(value => value.trim().toLowerCase()).filter(Boolean));
-const UNLIMITED_PLAN_PRICE = 5000; // NGN - monthly subscription price
 
 // Database-backed helpers (Supabase service-role client)
 
@@ -352,11 +351,26 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+const MAX_REQUEST_BODY_BYTES = 150 * 1024 * 1024; // ~150MB: covers a 100MB file, base64-inflated (+~33%), plus JSON overhead
+
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    let receivedBytes = 0;
+    let aborted = false;
+    req.on('data', chunk => {
+      if (aborted) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > MAX_REQUEST_BODY_BYTES) {
+        aborted = true;
+        req.destroy();
+        resolve({ __parseError: 'Request body too large.', __statusCode: 413 });
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => {
+      if (aborted) return;
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
@@ -367,12 +381,6 @@ function parseBody(req) {
     });
     req.on('error', reject);
   });
-}
-
-function sanitizeBook(book, includeFileData = false) {
-  const sanitized = { ...book };
-  if (!includeFileData) delete sanitized.fileData;
-  return sanitized;
 }
 
 async function getTrendingBooks() {
@@ -625,21 +633,101 @@ async function chargeWimpyPayWallet(userId, amount, reference, description) {
   }
 }
 
+// WimpyPay owns subscription state centrally. Since WimpyID/WimpyPay/WimpyBooks
+// share one Supabase project, we read WimpyPay's own `subscriptions` + `plans`
+// tables directly (via our service-role client) instead of duplicating
+// active/expires_at state in a WimpyBooks-local table.
+const WIMPYBOOKS_PRODUCT_NAME = 'WimpyBooks';
+const WIMPYBOOKS_UNLIMITED_PLAN_NAME = 'Unlimited Monthly';
+
 async function getUserSubscription(user) {
   if (!user) return null;
+
   if (supabaseAdmin) {
     try {
-      const { data } = await supabaseAdmin.from('book_subscriptions').select('*').eq('user_id', user.id).maybeSingle();
+      const { data, error } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id, status, current_period_end, plans!inner(product_name, name)')
+        .eq('user_id', user.id)
+        .eq('plans.product_name', WIMPYBOOKS_PRODUCT_NAME)
+        .eq('status', 'active')
+        .order('current_period_end', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('getUserSubscription lookup error', error);
+        return null;
+      }
       if (!data) return null;
-      if (data.active && new Date(data.expires_at || 0) > new Date()) return data;
-      return null;
+      if (data.current_period_end && new Date(data.current_period_end) <= new Date()) return null;
+      return data;
     } catch (e) {
+      console.warn('getUserSubscription lookup failed', e);
       return null;
     }
   }
 
   const localSub = localDb.book_subscriptions.find(s => (String(s.user_id) === String(user.id) || String(s.user_email) === String(user.email)) && s.active && new Date(s.expires_at || 0) > new Date());
   return localSub || null;
+}
+
+// Calls WimpyPay's dedicated recurring-subscription endpoint, which atomically
+// charges the user's wallet and activates the subscription row on WimpyPay's
+// side (see wimpypay/src/pages/api/external/subscribe.ts). A matching
+// { product_name: 'WimpyBooks', name: 'Unlimited Monthly' } row must already
+// exist in WimpyPay's `plans` table (created once via WimpyPay's admin
+// create-plan endpoint) before this will succeed.
+async function subscribeViaWimpyPay(userId, reference) {
+  const baseUrl = process.env.WIMPYPAY_API_URL || 'https://pay.wimpy-corp.com.ng';
+  const apiKey = process.env.WIMPYPAY_INTERNAL_API_KEY;
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/api/external/subscribe`;
+
+  if (!apiKey) {
+    console.warn('Missing WIMPYPAY_INTERNAL_API_KEY for subscription.');
+    if (String(userId || '').startsWith('dev') || String(userId || '').startsWith('local:')) {
+      return { ok: true, subscription: { simulated: true } };
+    }
+    return { ok: false, error: 'missing-api-key' };
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-api-key': apiKey
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        product_name: WIMPYBOOKS_PRODUCT_NAME,
+        plan_name: WIMPYBOOKS_UNLIMITED_PLAN_NAME,
+        reference
+      })
+    });
+
+    const text = await response.text();
+    let payload = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch (err) {
+      payload = { raw: text };
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: payload?.error || 'subscribe_failed',
+        payload
+      };
+    }
+
+    return { ok: true, subscription: payload?.subscription };
+  } catch (error) {
+    console.error('WimpyPay subscribe call failed:', error);
+    return { ok: false, error: 'network_error', payload: { message: error.message } };
+  }
 }
 
 async function getBookAccess(user, book) {
@@ -675,47 +763,39 @@ function startServer(port = PORT) {
       if (!user) return sendJson(res, 401, { ok: false, msg: 'Login required.' });
 
       const reference = `wimpybooks-unlimited-${user.id}-${Date.now()}`;
-      const description = 'WimpyBooks Unlimited Monthly Subscription';
 
-      // TODO(confirm with WimpyPay team): WimpyPay subscription flow
-      // Current: One-off charge upfront + manual 30-day expiry (no auto-renewal yet)
-      // Confirm:
-      // 1. Does WimpyPay expose a dedicated recurring-subscription endpoint distinct from charge-wallet?
-      //    If yes, we should call that instead of charge-wallet + manual expiry.
-      // 2. Does WimpyPay own subscription state centrally (e.g., pay_subscriptions table)?
-      //    If yes, WimpyBooks should reference pay_subscription_id, not maintain local active/expires_at.
-      // 3. How should auto-renewal work? (webhook callback? periodic batch job? manual renewal?)
+      if (!supabaseAdmin) {
+        // Local/dev fallback only — production always goes through WimpyPay.
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const existing = localDb.book_subscriptions.find(s => String(s.user_id) === String(user.id) || String(s.user_email) === String(user.email));
+        if (existing) {
+          existing.active = true;
+          existing.expires_at = expiresAt;
+        } else {
+          localDb.book_subscriptions.push({ id: Date.now(), user_id: user.id, user_email: user.email, active: true, expires_at: expiresAt });
+        }
+        return sendJson(res, 200, { ok: true, msg: 'WimpyBooks Unlimited is now active.', expiresAt });
+      }
 
-      // Charge the user's WimpyPay wallet first
-      const chargeResult = await chargeWimpyPayWallet(user.id, UNLIMITED_PLAN_PRICE, reference, description);
-      if (!chargeResult.ok) {
-        if (chargeResult.error === 'insufficient-funds' || chargeResult.payload?.error === 'insufficient-funds') {
+      // WimpyPay owns billing + subscription state. This one call atomically
+      // charges the wallet and activates the subscription on WimpyPay's side
+      // (requires a { product_name: 'WimpyBooks', name: 'Unlimited Monthly' }
+      // row in WimpyPay's `plans` table, created once via WimpyPay's admin UI).
+      const subscribeResult = await subscribeViaWimpyPay(user.id, reference);
+      if (!subscribeResult.ok) {
+        if (subscribeResult.error === 'insufficient-funds' || subscribeResult.payload?.error === 'insufficient-funds') {
           return sendJson(res, 402, { ok: false, msg: "Your WimpyPay wallet doesn't have enough balance to subscribe — top up at pay.wimpy-corp.com.ng and try again.", topUpUrl: 'https://pay.wimpy-corp.com.ng' });
         }
-        console.error('WimpyPay charge result error:', chargeResult);
-        return sendJson(res, 502, { ok: false, msg: 'Unable to process the subscription charge right now. Please try again later.' });
+        if (subscribeResult.error === 'plan-not-found') {
+          console.error('WimpyPay has no "WimpyBooks / Unlimited Monthly" plan configured yet.');
+          return sendJson(res, 502, { ok: false, msg: 'Subscriptions are not available right now. Please try again later.' });
+        }
+        console.error('WimpyPay subscribe error:', subscribeResult);
+        return sendJson(res, 502, { ok: false, msg: 'Unable to process the subscription right now. Please try again later.' });
       }
 
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      try {
-        if (!supabaseAdmin) {
-          const existing = localDb.book_subscriptions.find(s => String(s.user_id) === String(user.id) || String(s.user_email) === String(user.email));
-          if (existing) {
-            existing.active = true;
-            existing.expires_at = expiresAt;
-            existing.transaction_ref = chargeResult.transactionRef;
-          } else {
-            localDb.book_subscriptions.push({ id: Date.now(), user_id: user.id, user_email: user.email, active: true, expires_at: expiresAt, transaction_ref: chargeResult.transactionRef });
-          }
-          return sendJson(res, 200, { ok: true, msg: 'WimpyBooks Unlimited is now active.', expiresAt, transactionRef: chargeResult.transactionRef });
-        }
-        await supabaseAdmin.from('book_subscriptions').upsert([{ user_id: user.id, user_email: user.email, active: true, expires_at: expiresAt, transaction_ref: chargeResult.transactionRef }], { onConflict: ['user_id'] });
-        return sendJson(res, 200, { ok: true, msg: 'WimpyBooks Unlimited is now active.', expiresAt, transactionRef: chargeResult.transactionRef });
-      } catch (err) {
-        console.error('subscriptions upsert error', err);
-        return sendJson(res, 500, { ok: false, msg: 'Unable to activate subscription.' });
-      }
+      const expiresAt = subscribeResult.subscription?.current_period_end || null;
+      return sendJson(res, 200, { ok: true, msg: 'WimpyBooks Unlimited is now active.', expiresAt });
     }
 
     if (url.pathname.startsWith('/api/books')) {
@@ -762,7 +842,7 @@ function startServer(port = PORT) {
         const user = await authUser(req);
         if (!user) return sendJson(res, 401, { ok: false, msg: 'Login required.' });
         const body = await parseBody(req);
-        if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+        if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
         const validationErrors = validateBookPayload(body);
         if (validationErrors.length) return sendJson(res, 400, { ok: false, msg: validationErrors[0] });
         const inserted = await insertBookRow(body, user.id);
@@ -802,7 +882,7 @@ function startServer(port = PORT) {
         const user = await authUser(req);
         if (!user) return sendJson(res, 401, { ok: false, msg: 'Login required.' });
         const body = await parseBody(req);
-        if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+        if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
         const validationErrors = validateCommentPayload(body);
         if (validationErrors.length) return sendJson(res, 400, { ok: false, msg: validationErrors[0] });
         const book = await fetchBookById(bookId);
@@ -815,7 +895,7 @@ function startServer(port = PORT) {
         const user = await authUser(req);
         if (!user) return sendJson(res, 401, { ok: false, msg: 'Login required.' });
         const body = await parseBody(req);
-        if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+        if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
         const book = await fetchBookById(bookId);
         if (!book) return sendJson(res, 404, { ok: false, msg: 'Book not found.' });
         const score = Number(body.score || 0);
@@ -859,7 +939,7 @@ function startServer(port = PORT) {
         const user = await authUser(req);
         if (!user) return sendJson(res, 401, { ok: false, msg: 'Login required.' });
         const body = await parseBody(req);
-        if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+        if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
         const book = await fetchBookById(bookId);
         if (!book) return sendJson(res, 404, { ok: false, msg: 'Book not found.' });
         const newPosition = body.position || '';
@@ -872,7 +952,7 @@ function startServer(port = PORT) {
 
     if (req.method === 'POST' && url.pathname === '/api/contacts') {
       const body = await parseBody(req);
-      if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+      if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
       const validationErrors = validateContactPayload(body);
       if (validationErrors.length) return sendJson(res, 400, { ok: false, msg: validationErrors[0] });
       const inserted = await insertContactMessage(body);
@@ -882,7 +962,7 @@ function startServer(port = PORT) {
 
     if (req.method === 'POST' && url.pathname === '/api/newsletter') {
       const body = await parseBody(req);
-      if (body.__parseError) return sendJson(res, 400, { ok: false, msg: body.__parseError });
+      if (body.__parseError) return sendJson(res, body.__statusCode || 400, { ok: false, msg: body.__parseError });
       const validationErrors = validateNewsletterPayload(body);
       if (validationErrors.length) return sendJson(res, 400, { ok: false, msg: validationErrors[0] });
       const email = String(body.email || '').trim().toLowerCase();
@@ -919,7 +999,11 @@ function startServer(port = PORT) {
         const booksRead = new Set((readEntries || []).map(r => r.book_id)).size;
         const timeSpent = (readEntries || []).reduce((sum, r) => sum + Number(r.time_spent || 0), 0);
         const recentReads = (readEntries || []).slice().sort((a, b) => (b.last_read_at || 0) - (a.last_read_at || 0)).slice(0, 5).map(entry => ({ bookId: entry.book_id, title: entry.book_title || 'Unknown book', position: entry.position, timeSpent: entry.time_spent || 0, lastReadAt: entry.last_read_at || 0 }));
-        return sendJson(res, 200, { ok: true, uploads: sanitizedUploads, stats: { uploadedCount: sanitizedUploads.length, earned: Number(earned.toFixed(2)), booksRead, timeSpent: Math.round(timeSpent), badges: user.badges || [] }, recentReads });
+        const subscription = await getUserSubscription(user);
+        const subscriptionInfo = subscription
+          ? { active: true, expiresAt: subscription.current_period_end || subscription.expires_at || null, manageUrl: 'https://pay.wimpy-corp.com.ng/dashboard' }
+          : { active: false, manageUrl: 'https://pay.wimpy-corp.com.ng/plans' };
+        return sendJson(res, 200, { ok: true, uploads: sanitizedUploads, stats: { uploadedCount: sanitizedUploads.length, earned: Number(earned.toFixed(2)), booksRead, timeSpent: Math.round(timeSpent), badges: user.badges || [] }, recentReads, subscription: subscriptionInfo });
       } catch (err) {
         console.error('dashboard query failed', err);
         return sendJson(res, 500, { ok: false, msg: 'Unable to load dashboard.' });

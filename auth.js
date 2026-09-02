@@ -1,4 +1,4 @@
- // ============================================
+// ============================================
 // Wimpy Books Auth + Storage
 // ============================================
 
@@ -143,16 +143,20 @@ async function initSupabaseClient() {
 async function persistSupabaseProfile(user, session) {
   const client = await initSupabaseClient();
   if (!client || !user?.id) return;
-  const profile = {
-    id: user.id,
-    email: user.email || '',
+  // `profiles` is owned by WimpyID (shared across every Wimpy Cooperations
+  // product in the same Supabase project). WimpyID already creates the row
+  // via its own signup trigger, so WimpyBooks only ever *updates* it, and
+  // only writes columns that actually exist on WimpyID's table
+  // (id, full_name, phone, avatar_url, is_admin, created_at, updated_at) —
+  // there is no `email` or `provider` column, and adding one here isn't
+  // WimpyBooks' call to make since other products read this table too.
+  const profileUpdate = {
     full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Reader',
     avatar_url: user.user_metadata?.avatar_url || null,
-    provider: user.app_metadata?.provider || 'email',
     updated_at: new Date().toISOString()
   };
   try {
-    await client.from('profiles').upsert(profile, { onConflict: 'id' });
+    await client.from('profiles').update(profileUpdate).eq('id', user.id);
   } catch (error) {
     console.warn('Could not sync Supabase profile', error);
   }
@@ -335,6 +339,9 @@ function ensureNoticeContainer() {
   const container = document.createElement('div');
   container.id = 'siteNoticeContainer';
   container.className = 'site-notice-container';
+  // Errors interrupt (assertive); info/success just announce politely once idle.
+  container.setAttribute('aria-live', 'polite');
+  container.setAttribute('role', 'status');
   document.body.appendChild(container);
 }
 
@@ -343,7 +350,16 @@ function showToast(message, type = 'info', timeout = 3500) {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
-  document.getElementById('siteNoticeContainer').appendChild(toast);
+  const noticeContainer = document.getElementById('siteNoticeContainer');
+  if (type === 'error') {
+    // Assertive errors should interrupt immediately rather than wait their turn.
+    noticeContainer.setAttribute('aria-live', 'assertive');
+    noticeContainer.setAttribute('role', 'alert');
+  } else {
+    noticeContainer.setAttribute('aria-live', 'polite');
+    noticeContainer.setAttribute('role', 'status');
+  }
+  noticeContainer.appendChild(toast);
   window.setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(-50%) translateY(20px)';
@@ -554,7 +570,7 @@ function updateNav() {
     };
   } else {
     authLink.href = 'auth.html';
-    authLink.innerHTML = '🔐 Account';
+    authLink.innerHTML = '<span aria-hidden="true">🔐</span> Account';
     authLink.onclick = null;
   }
   authLink.classList.toggle('is-user', Boolean(user));
@@ -565,7 +581,14 @@ function applyTheme(theme = 'dark') {
   document.documentElement.setAttribute('data-theme', resolvedTheme);
   document.body.classList.toggle('light-mode', resolvedTheme === 'light');
   const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
+  if (btn) {
+    btn.innerHTML = resolvedTheme === 'dark'
+      ? '<span aria-hidden="true">🌙</span>'
+      : '<span aria-hidden="true">☀️</span>';
+    // aria-pressed reflects "dark mode is on"; aria-label states the action the button performs next
+    btn.setAttribute('aria-pressed', resolvedTheme === 'dark' ? 'true' : 'false');
+    btn.setAttribute('aria-label', resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
 }
 
 function toggleDarkMode() {

@@ -19,10 +19,10 @@
       <img src="logo.svg" alt="Wimpy Books logo" width="40" height="40">
       <span>Wimpy Books</span>
     </a>
-    <a href="store.html">📚 Store</a>
-    <a href="upload.html">⬆️ Upload</a>
+    <a href="store.html"><span aria-hidden="true">📚</span> Store</a>
+    <a href="upload.html"><span aria-hidden="true">⬆️</span> Upload</a>
     <a href="dashboard.html" class="active">📊 Dashboard</a>
-    <button class="theme-toggle" id="themeToggle" type="button">🌙</button>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="true" aria-label="Switch to light mode"><span aria-hidden="true">🌙</span></button>
   </nav>
 
   <section class="form-page">
@@ -91,6 +91,24 @@
       }
       const currentUserName = (currentUser?.name || 'Reader').split(' ')[0];
       const badgesText = data.stats.badges?.length ? data.stats.badges.join(' • ') : 'No badges yet';
+      const sub = data.subscription || { active: false };
+      const subscriptionHtml = sub.active
+        ? `<div class="info-card subscription-card subscription-active">
+             <span class="stat-icon" aria-hidden="true">⭐</span>
+             <div>
+               <strong>WimpyBooks Unlimited is active</strong>
+               <p class="subtle">${sub.expiresAt ? `Renews ${new Date(sub.expiresAt).toLocaleDateString()}` : 'Manage your billing anytime through WimpyPay.'}</p>
+             </div>
+             <a href="${sub.manageUrl}" class="btn-outline btn-small" target="_blank" rel="noopener">Manage subscription</a>
+           </div>`
+        : `<div class="info-card subscription-card subscription-inactive">
+             <span class="stat-icon" aria-hidden="true">📖</span>
+             <div>
+               <strong>You're on the free plan</strong>
+               <p class="subtle">Subscribe to WimpyBooks Unlimited for unlimited access to every paid book.</p>
+             </div>
+             <a href="${sub.manageUrl}" class="btn-primary btn-small" target="_blank" rel="noopener">Get Unlimited</a>
+           </div>`;
       statsMount.innerHTML = `
         <div class="info-card dashboard-summary">
           <div class="dashboard-intro">
@@ -105,12 +123,13 @@
             <div class="stat-card"><span class="stat-icon">📚</span><strong>${Number(data.stats.uploadedCount)}</strong><span>books uploaded</span></div>
             <div class="stat-card"><span class="stat-icon">📖</span><strong>${Number(data.stats.booksRead)}</strong><span>books read</span></div>
             <div class="stat-card"><span class="stat-icon">⏱️</span><strong>${Math.round(Number(data.stats.timeSpent) || 0)}</strong><span>minutes read</span></div>
-            <div class="stat-card"><span class="stat-icon">💰</span><strong>$${Number(data.stats.earned || 0).toFixed(2)}</strong><span>earned</span></div>
+            <div class="stat-card"><span class="stat-icon">💰</span><strong>₦${Number(data.stats.earned || 0).toLocaleString()}</strong><span>earned</span></div>
           </div>
           <div class="badges-row">
             <span class="badge-pill">🏅 ${escapeHtml(badgesText)}</span>
           </div>
         </div>
+        ${subscriptionHtml}
       `;
 
       const continueMount = document.getElementById('continueReading');
